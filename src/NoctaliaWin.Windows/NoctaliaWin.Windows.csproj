@@ -4,6 +4,19 @@
     <ProjectReference Include="..\NoctaliaWin.Core\NoctaliaWin.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Registry + SystemEvents come from the installed desktop runtime; no NuGet needed. -->
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The unit tests exercise the decision logic behind these Win32 wrappers
+         through their injected seams, not through the live registry or shell. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NoctaliaWin.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
