@@ -1,0 +1,26 @@
+name: build and test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: build + unit tests (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: dotnet build NoctaliaWin.slnx --configuration Release --nologo
+
+      - name: Test
+        run: dotnet test tests/NoctaliaWin.Tests/NoctaliaWin.Tests.csproj --configuration Release --nologo
