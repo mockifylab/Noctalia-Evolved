@@ -18,7 +18,7 @@ public sealed class SystemStatusService : ISystemStatusService, IDisposable
     private const byte BatteryPercentageUnknown = 0xFF;
 
     private readonly Func<SystemStatusSnapshot>? _reader; // test seam
-    private readonly Timer? _timer;
+    private readonly System.Threading.Timer? _timer;
     private SystemStatusSnapshot _current;
 
     public event Action? Changed;
@@ -35,7 +35,7 @@ public sealed class SystemStatusService : ISystemStatusService, IDisposable
         if (_reader is null)
         {
             var interval = pollInterval ?? TimeSpan.FromSeconds(5);
-            _timer = new Timer(_ => Poll(), null, interval, interval);
+            _timer = new System.Threading.Timer(_ => Poll(), null, interval, interval);
         }
     }
 

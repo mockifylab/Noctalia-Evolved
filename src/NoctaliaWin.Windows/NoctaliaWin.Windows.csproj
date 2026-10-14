@@ -5,7 +5,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Registry + SystemEvents come from the installed desktop runtime; no NuGet needed. -->
+    <!-- Registry, System.Drawing and the tray's NotifyIcon come from the installed
+         desktop runtime; no NuGet package is needed. -->
     <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
   </ItemGroup>
 
@@ -21,6 +22,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
 </Project>
