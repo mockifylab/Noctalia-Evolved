@@ -1,0 +1,131 @@
+// Configuration schema mirroring Noctalia's config keys/defaults
+// (src/config/config_types.h, example.toml — MIT License, noctalia-dev).
+// Only sections with Windows equivalents are modeled in Milestone 1.
+namespace NoctaliaWin.Core.Config;
+
+public sealed class BarSection
+{
+    public string Position { get; set; } = "top"; // top | bottom | left | right
+    public int Thickness { get; set; } = 34;
+    public double BackgroundOpacity { get; set; } = 1.0;
+    public int Radius { get; set; } = 12;
+    public int? RadiusTopLeft { get; set; }
+    public int? RadiusTopRight { get; set; }
+    public int? RadiusBottomLeft { get; set; }
+    public int? RadiusBottomRight { get; set; }
+    public bool ConcaveEdgeCorners { get; set; } = true;
+    public int MarginEnds { get; set; } = 180;
+    public int MarginEdge { get; set; } = 10;
+    public int Padding { get; set; } = 14;
+    public int WidgetSpacing { get; set; } = 6;
+    public double Scale { get; set; } = 1.0;
+    public double FontScale { get; set; } = 1.0;
+    public bool Shadow { get; set; } = true;
+    public bool AutoHide { get; set; }
+    public bool ReserveSpace { get; set; } = true;
+    public string Layer { get; set; } = "top"; // top | overlay
+    public int PanelOverlap { get; set; } = 1;
+
+    public List<string> Start { get; set; } = ["launcher", "wallpaper", "workspaces"];
+    public List<string> Center { get; set; } = ["clock"];
+    public List<string> End { get; set; } =
+    [
+        "media", "tray", "notifications", "clipboard", "network", "bluetooth",
+        "volume", "brightness", "battery", "control-center", "session",
+    ];
+
+    public (int Tl, int Tr, int Br, int Bl) ResolvedCornerRadii() => (
+        RadiusTopLeft ?? Radius,
+        RadiusTopRight ?? Radius,
+        RadiusBottomRight ?? Radius,
+        RadiusBottomLeft ?? Radius);
+
+    public BarSection Clone() => new()
+    {
+        Position = Position,
+        Thickness = Thickness,
+        BackgroundOpacity = BackgroundOpacity,
+        Radius = Radius,
+        RadiusTopLeft = RadiusTopLeft,
+        RadiusTopRight = RadiusTopRight,
+        RadiusBottomLeft = RadiusBottomLeft,
+        RadiusBottomRight = RadiusBottomRight,
+        ConcaveEdgeCorners = ConcaveEdgeCorners,
+        MarginEnds = MarginEnds,
+        MarginEdge = MarginEdge,
+        Padding = Padding,
+        WidgetSpacing = WidgetSpacing,
+        Scale = Scale,
+        FontScale = FontScale,
+        Shadow = Shadow,
+        AutoHide = AutoHide,
+        ReserveSpace = ReserveSpace,
+        Layer = Layer,
+        PanelOverlap = PanelOverlap,
+        Start = [.. Start],
+        Center = [.. Center],
+        End = [.. End],
+    };
+}
+
+public sealed class ThemeSection
+{
+    public string Mode { get; set; } = "dark"; // dark | light | auto
+    public string Source { get; set; } = "builtin"; // builtin | wallpaper | community
+    public string Builtin { get; set; } = "Noctalia";
+
+    public ThemeSection Clone() => new()
+    {
+        Mode = Mode,
+        Source = Source,
+        Builtin = Builtin,
+    };
+}
+
+public sealed class AccessibilitySection
+{
+    public double UiScale { get; set; } = 1.0;
+
+    public AccessibilitySection Clone() => new() { UiScale = UiScale };
+}
+
+public sealed class ShellSection
+{
+    // Raw strftime-ish formats kept for config parity; the UI layer converts them.
+    public string TimeFormat { get; set; } = "{:%H:%M}";
+    public string DateFormat { get; set; } = "%A, %x";
+    public bool OfflineMode { get; set; }
+
+    public ShellSection Clone() => new()
+    {
+        TimeFormat = TimeFormat,
+        DateFormat = DateFormat,
+        OfflineMode = OfflineMode,
+    };
+}
+
+public sealed class AppConfig
+{
+    public const int CurrentSchemaVersion = 1;
+
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+    public ThemeSection Theme { get; set; } = new();
+    public AccessibilitySection Accessibility { get; set; } = new();
+    public ShellSection Shell { get; set; } = new();
+
+    /// Bars keyed by name; "main" always exists.
+    public Dictionary<string, BarSection> Bars { get; set; } = new() { ["main"] = new BarSection() };
+
+    public BarSection Main => Bars.TryGetValue("main", out var b) ? b : new BarSection();
+
+    public AppConfig Clone() => new()
+    {
+        SchemaVersion = SchemaVersion,
+        Theme = Theme.Clone(),
+        Accessibility = Accessibility.Clone(),
+        Shell = Shell.Clone(),
+        Bars = Bars.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()),
+    };
+
+    public static AppConfig Default() => new();
+}

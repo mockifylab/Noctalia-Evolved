@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+*.user
+.vs/
+
+# Rider / VS Code
+.idea/
+
+# Test / coverage output
+TestResults/
+*.trx
+*.coverage
+coverage/
+
+# Local scratch
+*.tmp
