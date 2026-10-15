@@ -1,7 +1,7 @@
-// Minimal hand-written COM declarations for the Core Audio session/volume APIs,
-// transcribed from Microsoft's published interface layout (mmdeviceapi.h,
-// endpointvolume.h). Only the slots needed to read and set the master volume are
-// used; the intervening declarations exist to keep the vtable order correct.
+// Minimal hand-written COM declarations for the Core Audio endpoint volume API.
+// IIDs and vtable order are taken from the published Windows SDK headers
+// (mmdeviceapi.h, endpointvolume.h). Slots that are not called are still declared,
+// because omitting one would shift every method after it.
 using System.Runtime.InteropServices;
 using NoctaliaWin.Windows;
 
@@ -15,23 +15,22 @@ internal static class CoreAudioIds
 }
 
 [ComImport]
-[Guid("A95664D2-9613-4F33-9C10-859786478A87")]
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IMMDeviceEnumerator
 {
-    [PreserveSig] int NotImpl_EnumDeviceEndpoints(int DataFlow, out IntPtr pDevices);
-    [PreserveSig] int NotImpl_EnumDeviceInputs(int DataFlow, out IntPtr pDevices);
-    [PreserveSig] int NotImpl_EnumAllEndpoints(out IntPtr pDevices);
-    [PreserveSig] int NotImpl_EnumDeviceClasses(ref Guid deviceInterfaceClass, IntPtr szDeviceID, out IntPtr pDevices);
+    [PreserveSig]
+    int NotImpl_EnumAudioEndpoints(int dataFlow, uint stateMask, out IntPtr devices);
 
     [PreserveSig]
-    int GetDefaultEndpoint(
-        int eDataFlow,
-        int eRole,
-        [MarshalAs(UnmanagedType.Interface)] out IMMDevice ppDevice);
+    int GetDefaultAudioEndpoint(
+        int dataFlow,
+        int role,
+        [MarshalAs(UnmanagedType.Interface)] out IMMDevice device);
 
-    [PreserveSig] int NotImpl_RegisterEndpointNotificationCallback(IntPtr pNotify);
-    [PreserveSig] int NotImpl_UnregisterEndpointNotificationCallback(IntPtr pNotify);
+    [PreserveSig] int NotImpl_GetDevice(IntPtr endpointId, out IntPtr device);
+    [PreserveSig] int NotImpl_RegisterEndpointNotificationCallback(IntPtr client);
+    [PreserveSig] int NotImpl_UnregisterEndpointNotificationCallback(IntPtr client);
 }
 
 [ComImport]
@@ -42,7 +41,7 @@ internal class DeviceEnumeratorCoclass
 }
 
 [ComImport]
-[Guid("D666063F-1581-4864-8D3C-4C7D87E5F944")]
+[Guid("D666063F-1587-4E43-81F1-B948E807363F")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IMMDevice
 {
@@ -59,22 +58,22 @@ internal interface IMMDevice
 }
 
 [ComImport]
-[Guid("5CDD5769-91A8-43A7-9A2B-7C7A96FC9BB7")]
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface IAudioEndpointVolume
 {
-    [PreserveSig] int NotImpl_RegisterOnNotify(uint dwCallbackRefCount, IntPtr pCallback);
-    [PreserveSig] int NotImpl_UnregisterOnNotify(IntPtr pCallback);
+    [PreserveSig] int NotImpl_RegisterControlChangeNotify(IntPtr callback);
+    [PreserveSig] int NotImpl_UnregisterControlChangeNotify(IntPtr callback);
     [PreserveSig] int NotImpl_GetChannelCount(out uint pcChannelCount);
     [PreserveSig] int NotImpl_SetMasterVolumeLevel(float fLevelDB, Guid pguidEventContext);
 
     [PreserveSig]
-    int SetMasterVolumeLevelScalar(float fLevel, Guid pguidEventContext);
+    int SetMasterVolumeLevelScalar(float fLevel, Guid eventContext);
 
     [PreserveSig] int NotImpl_GetMasterVolumeLevel(out float pfLevelDB);
 
     [PreserveSig]
-    int GetMasterVolumeLevelScalar(out float pfLevel);
+    int GetMasterVolumeLevelScalar(out float level);
 
     [PreserveSig] int NotImpl_SetChannelVolumeLevel(uint nChannel, float fLevelDB, Guid pguidEventContext);
     [PreserveSig] int NotImpl_SetChannelVolumeLevelScalar(uint nChannel, float fLevel, Guid pguidEventContext);
@@ -82,10 +81,10 @@ internal interface IAudioEndpointVolume
     [PreserveSig] int NotImpl_GetChannelVolumeLevelScalar(uint nChannel, out float pfLevel);
 
     [PreserveSig]
-    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, Guid pguidEventContext);
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, Guid eventContext);
 
     [PreserveSig]
-    int GetMute([MarshalAs(UnmanagedType.Bool)] out bool pbMute);
+    int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
 }
 
 /// <summary>
@@ -125,7 +124,7 @@ public sealed class AudioEndpointVolume : IAudioVolumeBackend, IDisposable
 
         try
         {
-            if (_enumerator.GetDefaultEndpoint(CoreAudioIds.ERender, CoreAudioIds.EConsole, out var device) != NativeMethods.S_OK)
+            if (_enumerator.GetDefaultAudioEndpoint(CoreAudioIds.ERender, CoreAudioIds.EConsole, out var device) != NativeMethods.S_OK)
                 return false;
 
             var iid = typeof(IAudioEndpointVolume).GUID;

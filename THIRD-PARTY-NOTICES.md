@@ -66,3 +66,10 @@ file header, and the full license texts are kept in `licenses/`.
 
 All Win32 / COM interop used by this project targets documented, publicly described
 Windows APIs. No undocumented hooks, process patching or shell replacement is used.
+
+## Windows SDK interface declarations
+
+The Core Audio wrappers in `src/NoctaliaWin.Windows/Native/AudioEndpointVolume.cs`
+declare COM interfaces by hand. Their IIDs and vtable order were transcribed from the
+published Windows SDK headers `mmdeviceapi.h` and `endpointvolume.h` (Microsoft,
+documented API surface). No code was copied from any third-party audio library.
