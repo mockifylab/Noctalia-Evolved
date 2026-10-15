@@ -190,6 +190,12 @@ public sealed class PanelCoordinatorTests
 
         // Settings is its own window, so the bar button must not steal the panel surface.
         Assert.False(PanelCoordinator.OpensPanel("settings"));
+        Assert.True(PanelCoordinator.OpensWindow("settings"));
+
+        // The two routes are exclusive: a widget that grows a panel never raises a window.
+        Assert.False(PanelCoordinator.OpensWindow("clock"));
+        Assert.False(PanelCoordinator.OpensWindow("launcher"));
+        Assert.False(PanelCoordinator.OpensWindow("spacer"));
     }
 
     [Fact]

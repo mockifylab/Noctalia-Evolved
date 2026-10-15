@@ -53,6 +53,12 @@ public sealed class PanelCoordinator
         _ => ControlCenterPanel,
     };
 
+    /// The bar widgets that raise an application window instead of a panel. Upstream's settings
+    /// button is one of them: it opens the settings page, a real window with its own life, and
+    /// never a surface that hangs off the bar.
+    public static bool OpensWindow(string widget) =>
+        widget.Equals("settings", StringComparison.OrdinalIgnoreCase);
+
     public PanelPhase Phase { get; private set; } = PanelPhase.Closed;
 
     public PanelSurface? Active { get; private set; }

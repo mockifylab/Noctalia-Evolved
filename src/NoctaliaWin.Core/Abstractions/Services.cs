@@ -108,7 +108,8 @@ public interface IHotkeyService
 
 public interface ITrayService : IDisposable
 {
-    event Action? IconActivated; // left click / double click: reopen settings
+    event Action? IconActivated; // left click: the launcher, the same door the bar's Search opens
+    event Action? SettingsRequested; // the menu's Settings entry
     event Action? ExitRequested;
     void SetTooltip(string text);
 }

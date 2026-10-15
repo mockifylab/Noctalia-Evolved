@@ -37,6 +37,7 @@ public sealed class BarViewModelTests
     private sealed class FakeStore(AppConfig? config = null) : ISettingsStore
     {
         public AppConfig Current { get; set; } = config ?? new AppConfig();
+        public string ConfigPath { get; } = @"C:\Test\config.toml";
         public IReadOnlyList<ConfigDiagnostic> LastDiagnostics { get; } = [];
         public event Action<AppConfig>? Changed;
         public List<AppConfig> Saves { get; } = [];
@@ -165,6 +166,7 @@ public sealed class BarViewModelTests
     [Theory]
     [InlineData("launcher", "Search")]
     [InlineData("control-center", "Quick settings")]
+    [InlineData("settings", "Settings")]
     public void BarButtonsCarryAWordInsteadOfAnIcon(string widget, string label)
     {
         // Upstream draws these as icon-font glyphs, which this port does not ship, so the
@@ -178,7 +180,6 @@ public sealed class BarViewModelTests
 
     [Theory]
     [InlineData("session")]
-    [InlineData("settings")]
     [InlineData("media")]
     [InlineData("made-up")]
     public void WidgetsWithoutAPanelYetAreNotRendered(string widget)

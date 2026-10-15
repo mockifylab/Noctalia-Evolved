@@ -55,6 +55,19 @@ internal sealed class ThemeBrushes
     public Brush Outline { get; }
     public Brush Hover { get; }
 
+    /// Whether a normal window's own caption should be asked to go dark. Decided from the
+    /// palette's surface rather than from the config's mode string, because "auto" resolves to
+    /// whichever palette was actually picked.
+    public bool UsesDarkCaption
+    {
+        get
+        {
+            var surface = Palette[ColorRole.Surface];
+            // Rec. 709 luma: what a person reads as light or dark, not raw green.
+            return 0.2126 * surface.R + 0.7152 * surface.G + 0.0722 * surface.B < 128;
+        }
+    }
+
     public Brush this[ColorRole role] => _brushes[role];
 
     public static SolidColorBrush Alpha(Rgb color, double opacity) => Freeze(Color.FromArgb(

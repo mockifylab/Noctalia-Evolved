@@ -125,6 +125,33 @@ public class ConfigTomlTests
         Assert.All(diags, d => Assert.False(d.IsError));
     }
 
+    [Fact]
+    public void AnUnknownPaletteKeepsTheDefaultAndSaysWhy()
+    {
+        var (config, diags) = ConfigToml.Load("""
+            [theme]
+            builtin = "crust"
+            """);
+
+        Assert.Equal("Noctalia", config.Theme.Builtin);
+        var diag = Find(diags, "theme.builtin");
+        Assert.NotNull(diag);
+        Assert.Contains("not a builtin palette", diag!.Message);
+        Assert.False(diag.IsError);
+    }
+
+    [Theory]
+    [InlineData("Ayu")]
+    [InlineData("Rosé Pine")]
+    [InlineData("tokyo night")]
+    public void AnyUpstreamPaletteNameIsAccepted(string name)
+    {
+        var (config, diags) = ConfigToml.Load($"[theme]{Environment.NewLine}builtin = \"{name}\"");
+
+        Assert.Equal(name, config.Theme.Builtin);
+        Assert.Null(Find(diags, "theme.builtin"));
+    }
+
     [Theory]
     [InlineData(999, 128)]
     [InlineData(-5, 20)]

@@ -8,15 +8,16 @@ This is **not** a Linux desktop environment on Windows, and **not** a re-skin of
 shell. It reuses Noctalia's geometry, design tokens and config contract where the license
 permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 
-> **Status: the bar, its pop-out panels and the launcher run.** `dotnet run --project
-> src/NoctaliaWin.App` shows a Noctalia bar on every monitor — concave silhouette, Search and
-> Quick settings buttons, clock, network, volume, battery, auto-hide, tray presence — and
-> clicking a widget opens the concave panel behind it: a real month calendar under the clock, a
-> quick-settings panel that reads and writes the actual master volume, and a launcher that
-> lists the installed applications, filters them as you type and starts the selected one with
-> Enter. The launcher also answers a global `Ctrl+Alt+Space` from anywhere on the desktop.
-> 418 tests pass. The settings window is the next milestone. See
-> [Current state](#current-state).
+> **Status: the bar, its pop-out panels, the launcher and the settings window run.**
+> `dotnet run --project src/NoctaliaWin.App` shows a Noctalia bar on every monitor — concave
+> silhouette, Search and Quick settings buttons, clock, network, volume, battery, auto-hide,
+> tray presence — and clicking a widget opens the concave panel behind it: a real month
+> calendar under the clock, a quick-settings panel that reads and writes the actual master
+> volume, and a launcher that lists the installed applications, filters them as you type and
+> starts the selected one with Enter. The launcher also answers a global `Ctrl+Alt+Space` from
+> anywhere on the desktop. The settings window is laid out the way Noctalia's is — search,
+> section list, grouped cards — and every row in it writes `config.toml` and redraws the bar.
+> 468 tests pass. See [Current state](#current-state).
 
 ## Current state
 
@@ -29,15 +30,16 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
 | Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement |
 | Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
-| Global hotkey | **Runs**; `shell.launcher.hotkey` (default `CTRL+ALT+SPACE`) toggles the launcher through `RegisterHotKey` on a message-only window. Any other binding is a settings-window task |
-| Settings window | Not built (store is ready; edit `config.toml` by hand) |
+| Global hotkey | **Runs**; `shell.launcher.hotkey` (default `CTRL+ALT+SPACE`) toggles the launcher through `RegisterHotKey` on a message-only window. The Launcher section's `Show launcher` row rebinds it, and a rebuild re-registers it; if Windows will not hand the combination over, the tray tooltip says the shortcut is unavailable |
+| Settings window | **Runs**; Noctalia's layout (search, section list, grouped cards), seven sections, and the row kinds upstream uses — switches, pills, dropdowns, sliders with a typed read-out, text fields, a key-capture box, a scheme grid, widget lanes, reset-per-row and restore-all-defaults. Every row writes `config.toml` through the same editor the tests round-trip, and the bar rebuilds from it |
 
 Widgets that have no Windows backing yet are **skipped and reported**, never drawn as empty
 tiles: `media`, `clipboard`, `bluetooth`, `brightness`, `wallpaper`, `workspaces`, `text`,
 `tray` and `notifications`. The last two are on that list because reading another process's
 status-bar icons or toast content has no supported API. `launcher` and `control-center` are
-drawn as bar buttons with a word instead of Noctalia's icon-font glyph; `settings` and
-`session` are named in the catalog but have no button yet.
+drawn as bar buttons with a word instead of Noctalia's icon-font glyph; `settings` is a bar
+button that opens the settings window, and `session` is named in the catalog but has no button
+yet.
 
 What the panels knowingly do not do: `transparency_mode = "glass"` sets the card's opacity but
 cannot blur what is behind it, because WPF exposes no documented backdrop blur for a layered
@@ -66,6 +68,10 @@ No admin rights are needed to build or run.
 dotnet build NoctaliaWin.slnx
 ```
 
+The version every project carries — the one the settings window's `Version` row shows, and the
+one a packaged build or an update check would compare — is set once, in
+`Directory.Build.props`.
+
 ## Test
 
 ```powershell
@@ -91,8 +97,8 @@ dotnet run --project src/NoctaliaWin.App
 ```
 
 A bar appears on every monitor inside the work area (below the Windows taskbar), with a tray
-icon whose menu has **Exit Noctalia** and whose left click opens the launcher. `Ctrl+Alt+Space`
-opens the same launcher from anywhere, whatever has focus.
+icon whose menu has **Settings** and **Exit Noctalia** and whose left click opens the launcher.
+`Ctrl+Alt+Space` opens the same launcher from anywhere, whatever has focus.
 `tools/capture-screen.ps1`, `tools/crop-screen.ps1`, `tools/click-screen.ps1` and
 `tools/press-hotkey.ps1` exist for checking the result by eye:
 
@@ -137,9 +143,15 @@ Upstream's other launcher keys — `layout`, `default_view`, `show_icons`, `trac
 nothing to render them with: there are no icons, no recent/pinned/categories views and no
 usage history yet. A key nothing draws is left out rather than accepted and ignored.
 
-There is no settings window yet, so edit the file by hand and restart the app: the store
-reloads on start, and `Changed` — what rebuilds the bar — only fires for a write the app
-itself made. Watching the file for hand edits is part of the settings-window milestone.
+The settings window writes this file, and the bar rebuilds as soon as a write lands. Three
+doors open it: the **Settings** entry in the tray menu, a `settings` widget in a bar lane (add
+it from the settings window's own lane editor), and `NoctaliaWin.exe --settings [section]`,
+where `section` is one of the sidebar's ids (`appearance`, `bar`, `panels`, `control-center`,
+`launcher`, `clock`, `windows`) for a shortcut that lands on one page.
+
+A hand edit to `config.toml` still needs a restart: the store reloads on start, and `Changed` —
+what rebuilds the bar — fires for a write the app itself made. Watching the file for outside
+edits is the next step.
 
 ## Layout
 

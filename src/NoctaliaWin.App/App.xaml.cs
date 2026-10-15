@@ -3,14 +3,17 @@
 // The app has no main window on purpose. Shell strips are derived from the monitor list
 // and the config file, so they are created here rather than by a StartupUri, and shutdown
 // is explicit (the tray's Exit) so closing one strip cannot end the session.
+using System.Reflection;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using NoctaliaWin.App.Design;
+using NoctaliaWin.App.Settings;
 using NoctaliaWin.App.Shell;
 using NoctaliaWin.Core.Abstractions;
 using NoctaliaWin.Core.Config;
 using NoctaliaWin.Core.Design;
+using NoctaliaWin.Core.Settings;
 using NoctaliaWin.Core.Shell;
 using NoctaliaWin.Windows;
 
@@ -25,10 +28,13 @@ public partial class App : Application
     private readonly SystemThemeService _systemTheme = new();
     private readonly TrayService _tray = new();
     private readonly HotkeyService _hotkeys = new();
+    private readonly StartupService _startup = new();
 
     private readonly List<BarState> _bars = [];
     private BarViewModel? _model;
     private PanelHost? _panels;
+    private SettingsEditor? _editor;
+    private SettingsWindow? _settingsWindow;
 
     // Built on first use: scanning the Start Menu costs a directory walk, and a session that
     // never opens the launcher should not pay for it at startup.
@@ -50,12 +56,25 @@ public partial class App : Application
         // The tray is the launcher's other door: it opens the same panel the bar's Search
         // button does, against the primary bar's monitor.
         _tray.IconActivated += () => _panels?.ToggleLauncher(CurrentTheme());
+        _tray.SettingsRequested += () => OpenSettings();
 
         _settings.Changed += _ => RebuildLater();
         _systemTheme.Changed += RebuildLater;
 
         BuildBars();
         StartPointerPolling();
+
+        // A second door to the same window, for a person whose bar has no Settings widget in it
+        // yet: `NoctaliaWin.exe --settings [section]`, where the section is one of the sidebar's
+        // own ids, so a shortcut can land on the page it is about.
+        int at = Array.IndexOf(e.Args, "--settings");
+        if (at >= 0)
+        {
+            string? page = at + 1 < e.Args.Length && !e.Args[at + 1].StartsWith('-')
+                ? e.Args[at + 1]
+                : null;
+            OpenSettings(page);
+        }
     }
 
     /// The launcher's model, built the first time a launcher panel is actually asked for and
@@ -87,6 +106,45 @@ public partial class App : Application
             : "Noctalia for Windows - launcher hotkey unavailable");
     }
 
+    /// One settings window per app: asking again raises the window that is already open rather
+    /// than stacking a second editor over the same file. `page` is the optional deep link from
+    /// the command line; an id the catalog does not have opens the first page.
+    private void OpenSettings(string? page = null)
+    {
+        var config = _settings.Current;
+        var theme = CurrentTheme();
+
+        if (_settingsWindow is { } existing)
+        {
+            existing.Reveal(theme, config.Accessibility.UiScale, config.Accessibility.UiScale);
+            return;
+        }
+
+        _editor ??= new SettingsEditor(_settings, _startup, AppVersion);
+
+        var window = new SettingsWindow(
+            _editor, theme, config.Accessibility.UiScale, config.Accessibility.UiScale, page);
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_settingsWindow, window)) _settingsWindow = null;
+        };
+
+        _settingsWindow = window;
+        window.Show();
+        window.Activate();
+    }
+
+    /// The version this build was compiled with, from Directory.Build.props. Read from the
+    /// running assembly rather than the apphost's file metadata, because an unversioned build
+    /// leaves that field holding the .NET SDK's own number, which the settings window would
+    /// then show as if it were ours.
+    private static string AppVersion =>
+        typeof(App).Assembly
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion
+        ?? typeof(App).Assembly.GetName().Version?.ToString(3)
+        ?? "development build";
+
     private ThemeBrushes CurrentTheme()
     {
         var config = _settings.Current;
@@ -111,6 +169,11 @@ public partial class App : Application
 
         var config = _settings.Current;
         var theme = CurrentTheme();
+
+        // An open settings window is repainted with the palette the bars were just rebuilt
+        // with, instead of being left showing a theme the file no longer holds.
+        _settingsWindow?.Reveal(theme, config.Accessibility.UiScale, config.Accessibility.UiScale);
+
         _model = new BarViewModel(
             _status,
             _audio,
@@ -140,6 +203,11 @@ public partial class App : Application
                 (widget, point) =>
                 {
                     if (built is { } bar) _panels?.ToggleFromClick(widget, bar, theme, point);
+                },
+                PanelCoordinator.OpensWindow,
+                (widget, _) =>
+                {
+                    if (PanelCoordinator.OpensWindow(widget)) OpenSettings();
                 });
 
             var window = new BarWindow(monitor, placement, slots, _model, theme, interactions);

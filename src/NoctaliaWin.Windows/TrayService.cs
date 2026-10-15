@@ -8,8 +8,8 @@ namespace NoctaliaWin.Windows;
 /// <summary>
 /// Tray presence via the documented shell notification icon API (through
 /// NotifyIcon, which is part of the Windows Desktop runtime we already reference).
-/// Left-click reopens the settings window; the context menu only offers Exit, and
-/// exiting never touches the taskbar or any other shell process.
+/// Left-click reopens the launcher; the context menu offers Settings and Exit, and exiting
+/// never touches the taskbar or any other shell process.
 /// </summary>
 public sealed class TrayService : ITrayService
 {
@@ -19,13 +19,17 @@ public sealed class TrayService : ITrayService
     private readonly WinForms.NotifyIcon _icon;
 
     public event Action? IconActivated;
+    public event Action? SettingsRequested;
     public event Action? ExitRequested;
 
     public TrayService()
     {
         var menu = new WinForms.ContextMenuStrip();
+        var settingsItem = new WinForms.ToolStripMenuItem("Settings");
+        settingsItem.Click += (_, _) => SettingsRequested?.Invoke();
         var exitItem = new WinForms.ToolStripMenuItem("Exit Noctalia");
         exitItem.Click += (_, _) => ExitRequested?.Invoke();
+        menu.Items.Add(settingsItem);
         menu.Items.Add(exitItem);
 
         _icon = new WinForms.NotifyIcon

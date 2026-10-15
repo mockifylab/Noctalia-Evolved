@@ -23,6 +23,7 @@ public sealed class BarViewModel : IDisposable
         {
             ["launcher"] = "Search",
             ["control-center"] = "Quick settings",
+            ["settings"] = "Settings",
         };
 
     private static readonly IReadOnlyDictionary<string, string> ButtonTooltips =
@@ -30,6 +31,7 @@ public sealed class BarViewModel : IDisposable
         {
             ["launcher"] = "Search installed applications",
             ["control-center"] = "Open quick settings",
+            ["settings"] = "Open the Noctalia settings window",
         };
 
     private readonly ISystemStatusService _status;

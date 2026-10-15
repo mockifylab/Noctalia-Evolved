@@ -5,6 +5,9 @@ namespace NoctaliaWin.Core.Config;
 public interface ISettingsStore
 {
     AppConfig Current { get; }
+
+    /// Where the config lives, so the settings window can show the path a row writes to.
+    string ConfigPath { get; }
     IReadOnlyList<ConfigDiagnostic> LastDiagnostics { get; }
     event Action<AppConfig>? Changed;
     void Reload();

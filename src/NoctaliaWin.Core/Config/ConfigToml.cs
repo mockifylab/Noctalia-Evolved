@@ -5,6 +5,7 @@
 // (MIT License, Copyright (c) 2026 noctalia-dev).
 using System.Globalization;
 using System.Text;
+using NoctaliaWin.Core.Design;
 using NoctaliaWin.Core.Input;
 
 namespace NoctaliaWin.Core.Config;
@@ -384,7 +385,11 @@ public static class ConfigToml
         if (source is "builtin" or "wallpaper" or "community") s.Source = source;
         else d.Add(new("theme.source", $"'{source}' is not a valid value; using default", false));
 
-        s.Builtin = GetString(t, "builtin", s.Builtin, "theme", d);
+        var builtin = GetString(t, "builtin", s.Builtin, "theme", d);
+        // An unknown name would quietly render as Noctalia, which is the accepted-then-ignored
+        // pattern this layer refuses everywhere else.
+        if (BuiltinPalettes.ByName(builtin) is not null) s.Builtin = builtin;
+        else d.Add(new("theme.builtin", $"'{builtin}' is not a builtin palette; using default", false));
     }
 
     private static void ReadBar(MiniTomlTable t, BarSection s, string path, List<ConfigDiagnostic> d)

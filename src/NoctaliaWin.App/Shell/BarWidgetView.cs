@@ -25,10 +25,14 @@ internal sealed class WidgetView
 
 /// How a bar widget reacts to the pointer. The panel-opening widgets route their click to the
 /// panel host, and the point of that click travels with it in physical screen pixels so an
-/// `open_near_click` panel can follow where the user actually pressed.
+/// `open_near_click` panel can follow where the user actually pressed. The window-opening
+/// widgets (settings) share the same routing but get their own callback, because raising a
+/// window must not close the panel that is currently open.
 internal sealed record BarInteractions(
     Func<string, bool> OpensPanel,
-    Action<string, Point> Activated);
+    Action<string, Point> Activated,
+    Func<string, bool>? OpensWindow = null,
+    Action<string, Point>? WindowActivated = null);
 
 internal static class BarWidgetView
 {
@@ -92,14 +96,19 @@ internal static class BarWidgetView
 
         bool volume = widget.Equals("volume", StringComparison.OrdinalIgnoreCase);
         bool opensPanel = interactions?.OpensPanel(widget) ?? false;
+        bool opensWindow = interactions?.OpensWindow?.Invoke(widget) ?? false;
 
-        if (opensPanel)
+        if (opensPanel || opensWindow)
         {
             // A bar widget is a button in Noctalia: clicking it raises the panel it owns,
             // and the press point goes with it so the panel can open near the click.
             capsule.Cursor = Cursors.Hand;
             capsule.MouseLeftButtonUp += (_, e) =>
-                interactions!.Activated(widget, capsule.PointToScreen(e.GetPosition(capsule)));
+            {
+                var point = capsule.PointToScreen(e.GetPosition(capsule));
+                if (opensPanel) interactions!.Activated(widget, point);
+                else interactions!.WindowActivated!(widget, point);
+            };
         }
 
         if (volume)
