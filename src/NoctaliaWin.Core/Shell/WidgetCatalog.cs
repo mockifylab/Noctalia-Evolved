@@ -9,16 +9,19 @@ public static class WidgetCatalog
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "launcher", "clock", "control-center", "settings", "session",
-            "network", "volume", "battery", "tray", "notifications", "spacer",
+            "network", "volume", "battery", "spacer",
         };
 
     /// Known upstream widget names not yet implemented on Windows. "text" is here
     /// because it needs a per-widget text value, which the config schema does not
     /// model yet, so rendering it would show an empty label rather than real content.
+    /// "tray" and "notifications" are here because the only documented way to show them
+    /// needs a panel of our own first: enumerating other processes' status-bar icons and
+    /// reading another app's toast content has no supported API.
     public static readonly IReadOnlySet<string> Planned =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "text",
+            "text", "tray", "notifications",
             "wallpaper", "workspaces", "media", "clipboard", "bluetooth",
             "brightness", "keyboard-layout", "active-window", "taskbar",
             "screenshot", "weather", "sysmon", "audio-visualizer", "caffeine",

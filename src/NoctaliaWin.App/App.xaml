@@ -1,9 +1,10 @@
-﻿<Application x:Class="NoctaliaWin.App.App"
+<Application x:Class="NoctaliaWin.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:NoctaliaWin.App"
-             StartupUri="MainWindow.xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- No StartupUri: the composition root in App.xaml.cs decides which shell windows
+         exist, because they come from the monitor list and the config file, not from a
+         fixed main window. Palettes are runtime data, so the brushes are built in
+         Design/ThemeBrushes.cs rather than as static resources. -->
     <Application.Resources>
-         
     </Application.Resources>
 </Application>

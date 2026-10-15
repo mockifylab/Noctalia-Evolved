@@ -39,11 +39,16 @@ public static class BarLayout
     /// The bar always lives inside the monitor's work area, so it can never cover the
     /// Windows taskbar. ReserveSpace is therefore not honoured here: shrinking the real
     /// work area needs appbar registration, which is a shell modification.
-    public static BarPlacement Compute(MonitorInfo monitor, Config.BarSection bar)
+    ///
+    /// `uiScale` is the accessibility UI scale; it multiplies the bar's own scale so one
+    /// factor covers both, and it stays separate from `monitor.ScaleX`, which is the
+    /// device scale the WPF layer divides back out to get DIPs.
+    public static BarPlacement Compute(MonitorInfo monitor, Config.BarSection bar, double uiScale = 1.0)
     {
         var position = bar.Position is "bottom" or "left" or "right" ? bar.Position : "top";
-        double sx = monitor.ScaleX * bar.Scale;
-        double sy = monitor.ScaleY * bar.Scale;
+        double zoom = bar.Scale * uiScale;
+        double sx = monitor.ScaleX * zoom;
+        double sy = monitor.ScaleY * zoom;
 
         int thicknessX = Scale(bar.Thickness, sx);
         int thicknessY = Scale(bar.Thickness, sy);

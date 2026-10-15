@@ -185,7 +185,11 @@ public sealed class BarLayoutTests
         Assert.Contains("wallpaper", slots.Skipped);
         Assert.Contains("media", slots.Skipped);
         Assert.Contains("bluetooth", slots.Skipped);
-        Assert.Contains("notifications", slots.End);
+        // No documented API exists for another app's status icons or toast content, so
+        // those names are reported as skipped instead of rendering an empty tile.
+        Assert.DoesNotContain("notifications", slots.End);
+        Assert.Contains("notifications", slots.Skipped);
+        Assert.Contains("tray", slots.Skipped);
         Assert.Contains("volume", slots.End);
     }
 
@@ -208,5 +212,34 @@ public sealed class BarLayoutTests
 
         Assert.Empty(slots.Center);
         Assert.Contains("text", slots.Skipped);
+    }
+
+    [Fact]
+    public void UiScale_MultipliesDeviceScaleIntoEveryPixelSize()
+    {
+        var monitor = Monitor();
+        var bar = new BarSection { MarginEnds = 0, MarginEdge = 0, Thickness = 34, Radius = 12 };
+
+        var plain = BarLayout.Compute(monitor, bar);
+        var scaled = BarLayout.Compute(monitor, bar, uiScale: 1.5);
+
+        // The renderer divides by the device scale only, so the zoom survives as DIPs.
+        Assert.Equal(34, plain.Body.Height);
+        Assert.Equal(51, scaled.Body.Height);
+        Assert.Equal(1.5, scaled.ScaleX / plain.ScaleX);
+        Assert.Equal(21, scaled.Padding); // 14 * 1.5
+        Assert.Equal(9, scaled.WidgetSpacing); // 6 * 1.5
+    }
+
+    [Fact]
+    public void UiScale_LiftsTheBarByItsOwnGrowth()
+    {
+        var bar = new BarSection { MarginEnds = 0, MarginEdge = 10, Thickness = 34 };
+
+        var scaled = BarLayout.Compute(Monitor(), bar, uiScale: 2.0);
+
+        // 10 * 2 = 20 px edge margin, and the bar body still starts below it.
+        Assert.Equal(20, scaled.Body.Y);
+        Assert.Equal(68, scaled.Body.Height);
     }
 }

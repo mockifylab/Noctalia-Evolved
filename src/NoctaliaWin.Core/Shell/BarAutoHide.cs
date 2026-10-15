@@ -42,4 +42,17 @@ public static class BarAutoHide
         bool pointerInTriggerBand,
         bool panelOpen) =>
         !autoHide || panelOpen || pointerOnBar || pointerInTriggerBand;
+
+    /// Slide position at raw progress `t` (0..1), eased to match Noctalia's fast-out
+    /// reveal. Both endpoints are exact so a finished animation always lands on the
+    /// target rectangle.
+    public static PxRect Interpolate(PxRect from, PxRect to, double t)
+    {
+        double eased = Math.Clamp(t, 0, 1);
+        eased = 1 - (1 - eased) * (1 - eased) * (1 - eased);
+
+        int lerp(int a, int b) => a + (int)Math.Round((b - a) * eased);
+
+        return new PxRect(lerp(from.X, to.X), lerp(from.Y, to.Y), lerp(from.Width, to.Width), lerp(from.Height, to.Height));
+    }
 }

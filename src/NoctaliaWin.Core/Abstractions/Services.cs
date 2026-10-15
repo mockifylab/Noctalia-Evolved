@@ -83,6 +83,16 @@ public interface IStartupService
     void SetEnabled(bool enabled);
 }
 
+/// <summary>
+/// The operating system's own light/dark choice for application chrome, which is what
+/// `theme.mode = "auto"` resolves against. Distinct from Noctalia's palette mode.
+/// </summary>
+public interface ISystemThemeService
+{
+    bool UsesLightTheme { get; }
+    event Action? Changed;
+}
+
 public interface IHotkeyService
 {
     /// Registers a global hotkey; returns false if the combination is taken.

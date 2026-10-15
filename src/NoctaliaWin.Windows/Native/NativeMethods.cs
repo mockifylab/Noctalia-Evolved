@@ -51,9 +51,23 @@ internal struct SYSTEM_POWER_STATUS
     public int BatteryFullLifeTime;
 }
 
+internal struct POINT
+{
+    public int X;
+    public int Y;
+}
+
 internal static class NativeMethods
 {
     public const int S_OK = 0;
+
+    // SetWindowPos flags (winuser.h).
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
+    public const uint SWP_NOZORDER = 0x0004;
+    public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_NOREDRAW = 0x0008;
+    public const uint SWP_NOOWNERZORDER = 0x0200;
 
     // The LPRECT is passed as a pointer we never read; the monitor handle is the
     // input to GetMonitorInfoW.
@@ -72,4 +86,14 @@ internal static class NativeMethods
 
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
+
+    // Physical-pixel window placement: WPF's Left/Top/Width/Height are DIPs of an
+    // ambiguous monitor on per-monitor-DPI desktops, so the shell windows are positioned
+    // through SetWindowPos, which is documented to take virtual-screen pixels.
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int X, int Y, int cx, int cy, uint uFlags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
 }

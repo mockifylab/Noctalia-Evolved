@@ -121,4 +121,31 @@ public sealed class BarAutoHideTests
         Assert.False(BarAutoHide.Contains(top.Surface, 900, 60));
         Assert.False(BarAutoHide.IsShown(autoHide: true, pointerOnBar: false, pointerInTriggerBand: false, panelOpen: false));
     }
+
+    [Fact]
+    public void Slide_EndpointsLandExactlyOnTheHiddenAndShownRects()
+    {
+        var top = Placement("top");
+        var shown = top.Surface;
+        var hidden = BarAutoHide.HiddenRect(top, Monitor());
+
+        Assert.Equal(shown, BarAutoHide.Interpolate(shown, hidden, 0));
+        Assert.Equal(hidden, BarAutoHide.Interpolate(shown, hidden, 1));
+        // Progress outside the animation window is clamped, never overshooting the edge.
+        Assert.Equal(hidden, BarAutoHide.Interpolate(shown, hidden, 4));
+        Assert.Equal(shown, BarAutoHide.Interpolate(shown, hidden, -1));
+    }
+
+    [Fact]
+    public void Slide_IsEasedSoTheBarMovesFastAtFirst()
+    {
+        var from = new PxRect(0, 0, 1000, 40);
+        var to = new PxRect(0, -100, 1000, 40);
+
+        var half = BarAutoHide.Interpolate(from, to, 0.5);
+
+        // Cubic ease-out covers more than half the distance at the midpoint.
+        Assert.True(half.Y < -50, $"expected past the midpoint, got {half.Y}");
+        Assert.Equal(1000, half.Width); // size is interpolated too, so it stays stable here
+    }
 }

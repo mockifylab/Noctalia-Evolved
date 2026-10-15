@@ -105,7 +105,6 @@ public class WidgetCatalogTests
     [InlineData("volume")]
     [InlineData("network")]
     [InlineData("battery")]
-    [InlineData("notifications")]
     [InlineData("session")]
     [InlineData("control-center")]
     public void MilestoneOneWidgetsAreSupported(string name)
@@ -119,6 +118,9 @@ public class WidgetCatalogTests
     [InlineData("media")]        // SMTC-backed, planned for M2
     [InlineData("wallpaper")]
     [InlineData("brightness")]
+    [InlineData("tray")]         // other processes' status icons have no documented reader
+    [InlineData("notifications")] // toast content needs the panel, not the bar alone
+    [InlineData("text")]         // needs a per-widget value the schema does not model
     public void DeferredWidgetsAreKnownButUnsupported(string name)
     {
         Assert.True(WidgetCatalog.IsKnown(name));
