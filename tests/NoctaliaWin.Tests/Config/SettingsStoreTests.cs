@@ -162,4 +162,66 @@ public class SettingsStoreTests
 
         Assert.Empty(Directory.GetFiles(dir.Path, "*.tmp"));
     }
+
+    [Fact]
+    public void ReloadIfChanged_PicksUpAnExternalEditAndRaisesChanged()
+    {
+        using var dir = new TempConfigDir();
+        var store = new SettingsStore(dir.Path);
+        store.Save(store.Current.Clone());
+
+        var raised = 0;
+        store.Changed += _ => raised++;
+
+        File.WriteAllText(dir.ConfigPath,
+            File.ReadAllText(dir.ConfigPath).Replace("thickness = 34", "thickness = 26"));
+
+        Assert.True(store.ReloadIfChanged());
+        Assert.Equal(26, store.Current.Main.Thickness);
+        Assert.Equal(1, raised);
+    }
+
+    /// One save arrives as several file-system events, and the app's own writes are events too.
+    /// A second look at unchanged text has to be silent, or every setting change would rebuild
+    /// the bar a handful of times.
+    [Fact]
+    public void ReloadIfChanged_IsSilentWhenTheTextHasNotChanged()
+    {
+        using var dir = new TempConfigDir();
+        var store = new SettingsStore(dir.Path);
+        store.Save(store.Current.Clone());
+
+        var raised = 0;
+        store.Changed += _ => raised++;
+
+        Assert.False(store.ReloadIfChanged());
+        Assert.False(store.ReloadIfChanged());
+        Assert.Equal(0, raised);
+
+        store.Save(store.Current.Clone());
+        Assert.Equal(1, raised);   // the write itself, and nothing else
+
+        // The events an atomic replace leaves behind must not read as somebody else's edit.
+        Assert.False(store.ReloadIfChanged());
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ReloadIfChanged_FallsBackToDefaultsWhenTheFileGoesAway()
+    {
+        using var dir = new TempConfigDir();
+        var store = new SettingsStore(dir.Path);
+        var custom = store.Current.Clone();
+        custom.Bars["main"].Thickness = 60;
+        store.Save(custom);
+
+        var raised = 0;
+        store.Changed += _ => raised++;
+
+        File.Delete(dir.ConfigPath);
+
+        Assert.True(store.ReloadIfChanged());
+        Assert.Equal(34, store.Current.Main.Thickness);
+        Assert.Equal(1, raised);
+    }
 }

@@ -11,6 +11,12 @@ public interface ISettingsStore
     IReadOnlyList<ConfigDiagnostic> LastDiagnostics { get; }
     event Action<AppConfig>? Changed;
     void Reload();
+
+    /// Re-reads the file only when its text differs from what this store last loaded or wrote,
+    /// and raises `Changed` only then. That is what lets a file-system event — which fires
+    /// several times for one save, and fires for the app's own writes too — be safe to act on.
+    bool ReloadIfChanged();
+
     void Save(AppConfig config);
     AppConfig RestoreDefaults();
 }
@@ -22,6 +28,10 @@ public sealed class SettingsStore : ISettingsStore
 
     private readonly string _dir;
     private AppConfig _current;
+
+    /// The exact text behind `Current`. A hand edit is only an edit if the bytes differ, which
+    /// is also what makes the duplicate events of an atomic replace harmless.
+    private string _lastText = "";
 
     public static string DefaultDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppFolderName);
@@ -45,11 +55,14 @@ public sealed class SettingsStore : ISettingsStore
             if (!File.Exists(ConfigPath))
             {
                 _current = AppConfig.Default();
+                _lastText = "";
                 LastDiagnostics = [];
                 return;
             }
-            var (config, diags) = ConfigToml.Load(File.ReadAllText(ConfigPath));
+            var text = File.ReadAllText(ConfigPath);
+            var (config, diags) = ConfigToml.Load(text);
             _current = config;
+            _lastText = text;
             LastDiagnostics = diags;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -57,6 +70,27 @@ public sealed class SettingsStore : ISettingsStore
             _current = AppConfig.Default();
             LastDiagnostics = [new("", $"could not read config: {ex.Message}", IsError: true)];
         }
+    }
+
+    public bool ReloadIfChanged()
+    {
+        string text;
+        try
+        {
+            text = File.Exists(ConfigPath) ? File.ReadAllText(ConfigPath) : "";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A save in flight is not a lost edit: the watcher fires again when the file is
+            // replaced, and a store that cannot read it keeps showing what it already has.
+            return false;
+        }
+
+        if (text == _lastText) return false;
+
+        Reload();
+        Changed?.Invoke(_current);
+        return true;
     }
 
     public void Save(AppConfig config)
@@ -70,6 +104,7 @@ public sealed class SettingsStore : ISettingsStore
         else
             File.Move(tmp, ConfigPath);
         _current = config.Clone();
+        _lastText = text;
         Changed?.Invoke(_current);
     }
 

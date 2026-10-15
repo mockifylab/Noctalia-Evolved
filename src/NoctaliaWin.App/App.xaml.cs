@@ -35,6 +35,7 @@ public partial class App : Application
     private PanelHost? _panels;
     private SettingsEditor? _editor;
     private SettingsWindow? _settingsWindow;
+    private ConfigFileWatcher? _configWatch;
 
     // Built on first use: scanning the Start Menu costs a directory walk, and a session that
     // never opens the launcher should not pay for it at startup.
@@ -63,6 +64,10 @@ public partial class App : Application
 
         BuildBars();
         StartPointerPolling();
+
+        // An edit made in a text editor reaches the bar too, not only one made here. The
+        // events arrive on a file-system thread, so the reload is posted to this dispatcher.
+        _configWatch = new ConfigFileWatcher(_settings, run => Dispatcher.BeginInvoke(run));
 
         // A second door to the same window, for a person whose bar has no Settings widget in it
         // yet: `NoctaliaWin.exe --settings [section]`, where the section is one of the sidebar's
@@ -364,6 +369,7 @@ public partial class App : Application
     {
         _pointerPoll?.Stop();
         _slide?.Stop();
+        _configWatch?.Dispose();
         CloseBars();
         Shutdown();
     }

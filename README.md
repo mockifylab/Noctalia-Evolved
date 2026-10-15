@@ -17,14 +17,14 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > starts the selected one with Enter. The launcher also answers a global `Ctrl+Alt+Space` from
 > anywhere on the desktop. The settings window is laid out the way Noctalia's is — search,
 > section list, grouped cards — and every row in it writes `config.toml` and redraws the bar.
-> 468 tests pass. See [Current state](#current-state).
+> 474 tests pass. See [Current state](#current-state).
 
 ## Current state
 
 | Area | State |
 |---|---|
 | Concave bar geometry, design tokens, palettes | Done, ported from Noctalia and unit-tested |
-| Config (`config.toml`) load/save/validate/migrate | Done, unit-tested |
+| Config (`config.toml`) load/save/validate/migrate | Done, unit-tested; a hand edit in an outside editor is watched for and reloaded |
 | fzy fuzzy search + launcher ranking | Done, unit-tested |
 | Monitors, DPI, power, network, audio, startup, tray | Done against documented Win32/COM APIs |
 | Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
@@ -149,9 +149,11 @@ it from the settings window's own lane editor), and `NoctaliaWin.exe --settings 
 where `section` is one of the sidebar's ids (`appearance`, `bar`, `panels`, `control-center`,
 `launcher`, `clock`, `windows`) for a shortcut that lands on one page.
 
-A hand edit to `config.toml` still needs a restart: the store reloads on start, and `Changed` —
-what rebuilds the bar — fires for a write the app itself made. Watching the file for outside
-edits is the next step.
+A hand edit to `config.toml` is picked up too: the app watches the file, and a change in its
+text — not merely a touch — reloads the store and rebuilds the bar. The app's own writes are
+filtered the same way, which is what keeps one save (an atomic replace, which arrives as
+several file-system events) from rebuilding the bar half a dozen times. A malformed edit
+falls back to defaults with a diagnostic rather than taking the bar down.
 
 ## Layout
 

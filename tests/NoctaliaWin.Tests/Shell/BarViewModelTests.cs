@@ -43,6 +43,7 @@ public sealed class BarViewModelTests
         public List<AppConfig> Saves { get; } = [];
 
         public void Reload() { }
+        public bool ReloadIfChanged() => false;
         public void Save(AppConfig config)
         {
             Saves.Add(config);
