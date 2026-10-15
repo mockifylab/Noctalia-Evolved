@@ -23,6 +23,13 @@ internal sealed class WidgetView
     public required Action Update { get; init; }
 }
 
+/// How a bar widget reacts to the pointer. The panel-opening widgets route their click to the
+/// panel host, and the point of that click travels with it in physical screen pixels so an
+/// `open_near_click` panel can follow where the user actually pressed.
+internal sealed record BarInteractions(
+    Func<string, bool> OpensPanel,
+    Action<string, Point> Activated);
+
 internal static class BarWidgetView
 {
     // Both families ship with Windows 11; naming a system font is not redistributing an
@@ -35,7 +42,8 @@ internal static class BarWidgetView
         BarPlacement placement,
         MonitorInfo monitor,
         ThemeBrushes theme,
-        bool vertical)
+        bool vertical,
+        BarInteractions? interactions = null)
     {
         if (!model.IsRendered(widget)) return null;
 
@@ -82,17 +90,33 @@ internal static class BarWidgetView
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        bool interactive = widget.Equals("volume", StringComparison.OrdinalIgnoreCase);
-        if (interactive)
+        bool volume = widget.Equals("volume", StringComparison.OrdinalIgnoreCase);
+        bool opensPanel = interactions?.OpensPanel(widget) ?? false;
+
+        if (opensPanel)
         {
+            // A bar widget is a button in Noctalia: clicking it raises the panel it owns,
+            // and the press point goes with it so the panel can open near the click.
             capsule.Cursor = Cursors.Hand;
-            capsule.MouseLeftButtonUp += (_, _) => model.ToggleMute();
+            capsule.MouseLeftButtonUp += (_, e) =>
+                interactions!.Activated(widget, capsule.PointToScreen(e.GetPosition(capsule)));
+        }
+
+        if (volume)
+        {
             capsule.MouseWheel += (_, e) =>
             {
                 if (e.Delta == 0) return;
                 model.AdjustVolume(e.Delta > 0 ? 5 : -5);
                 e.Handled = true;
             };
+
+            // With no panel configured for it, the click is the only route left to mute.
+            if (!opensPanel)
+            {
+                capsule.Cursor = Cursors.Hand;
+                capsule.MouseLeftButtonUp += (_, _) => model.ToggleMute();
+            }
         }
 
         capsule.MouseEnter += (_, _) => capsule.Background = theme.Hover;
@@ -107,7 +131,7 @@ internal static class BarWidgetView
                 label.Foreground = model.IsDim(widget) ? theme[ColorRole.OnSurfaceVariant] : theme[ColorRole.OnSurface];
                 label.FontSize = FontSize(widget, zoom, placement.FontScale);
                 capsule.ToolTip = model.Tooltip(widget);
-                capsule.Visibility = string.IsNullOrEmpty(label.Text) && !interactive
+                capsule.Visibility = string.IsNullOrEmpty(label.Text) && !volume
                     ? Visibility.Collapsed
                     : Visibility.Visible;
             },

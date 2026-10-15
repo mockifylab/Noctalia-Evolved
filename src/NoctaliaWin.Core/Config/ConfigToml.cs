@@ -330,6 +330,15 @@ public static class ConfigToml
             config.Shell.TimeFormat = GetString(shell, "time_format", config.Shell.TimeFormat, "shell", diagnostics);
             config.Shell.DateFormat = GetString(shell, "date_format", config.Shell.DateFormat, "shell", diagnostics);
             config.Shell.OfflineMode = GetBool(shell, "offline_mode", config.Shell.OfflineMode, "shell", diagnostics);
+
+            if (GetTable(shell, "panel") is { } panel)
+                ReadPanel(panel, config.Panels, diagnostics);
+        }
+
+        if (GetTable(root, "control_center") is { } controlCenter)
+        {
+            config.ControlCenter.Width = ClampI(
+                controlCenter, "width", config.ControlCenter.Width, 240, 1400, "control_center", diagnostics);
         }
 
         if (GetTable(root, "bar") is { } bars)
@@ -354,7 +363,8 @@ public static class ConfigToml
             }
         }
 
-        foreach (var key in root.Entries.Keys.Except(["schema_version", "theme", "accessibility", "shell", "bar"]))
+        foreach (var key in root.Entries.Keys.Except(
+            ["schema_version", "theme", "accessibility", "shell", "bar", "control_center"]))
             diagnostics.Add(new(key, "unknown section ignored by the Windows port", false));
 
         return (config, diagnostics);
@@ -406,6 +416,48 @@ public static class ConfigToml
         if (GetStringArray(t, "end", path, d) is { } end) s.End = end;
     }
 
+    private static void ReadPanel(MiniTomlTable t, PanelSection s, List<ConfigDiagnostic> d)
+    {
+        Enum(t, "transparency_mode", s.TransparencyMode, v => v is "solid" or "soft" or "glass",
+            nv => s.TransparencyMode = nv, "shell.panel", d);
+        Enum(t, "control_center_placement", s.ControlCenterPlacement, v => v is "attached" or "floating",
+            nv => s.ControlCenterPlacement = nv, "shell.panel", d);
+        Enum(t, "launcher_placement", s.LauncherPlacement, v => v is "attached" or "floating",
+            nv => s.LauncherPlacement = nv, "shell.panel", d);
+        Enum(t, "control_center_position", s.ControlCenterPosition,
+            v => PanelPositions.Contains(v), nv => s.ControlCenterPosition = nv, "shell.panel", d);
+        Enum(t, "launcher_position", s.LauncherPosition,
+            v => PanelPositions.Contains(v), nv => s.LauncherPosition = nv, "shell.panel", d);
+
+        s.Borders = GetBool(t, "borders", s.Borders, "shell.panel", d);
+        s.BorderWidth = ClampD(t, "border_width", s.BorderWidth, 0.0, 8.0, "shell.panel", d);
+        s.Shadow = GetBool(t, "shadow", s.Shadow, "shell.panel", d);
+        s.OpenNearClickControlCenter =
+            GetBool(t, "open_near_click_control_center", s.OpenNearClickControlCenter, "shell.panel", d);
+        s.OpenNearClickLauncher = GetBool(t, "open_near_click_launcher", s.OpenNearClickLauncher, "shell.panel", d);
+        s.FloatingOffset = ClampI(t, "floating_offset", s.FloatingOffset, 0, 128, "shell.panel", d);
+    }
+
+    /// The `[shell.panel].*_position` values upstream accepts, as far as this port models
+    /// placement. Screen-anchored positions are parsed but the first panel build only
+    /// honours "auto" (bar-relative) and "center".
+    private static readonly HashSet<string> PanelPositions =
+        new(StringComparer.Ordinal)
+        {
+            "auto", "center", "top_left", "top_right", "bottom_left", "bottom_right",
+            "top", "bottom", "left", "right",
+        };
+
+    private static void Enum(
+        MiniTomlTable t, string key, string current, Func<string, bool> isValid,
+        Action<string> apply, string path, List<ConfigDiagnostic> d)
+    {
+        if (!t.Entries.ContainsKey(key)) return;
+        var value = GetString(t, key, current, path, d);
+        if (isValid(value)) apply(value);
+        else d.Add(new($"{path}.{key}", $"'{value}' is not a valid value; using default", false));
+    }
+
     public static string Save(AppConfig c)
     {
         var sb = new StringBuilder();
@@ -424,6 +476,22 @@ public static class ConfigToml
         sb.AppendLine($"time_format = \"{c.Shell.TimeFormat}\"");
         sb.AppendLine($"date_format = \"{c.Shell.DateFormat}\"");
         sb.AppendLine($"offline_mode = {Bool(c.Shell.OfflineMode)}");
+        sb.AppendLine();
+        sb.AppendLine("[shell.panel]");
+        sb.AppendLine($"transparency_mode = \"{c.Panels.TransparencyMode}\"");
+        sb.AppendLine($"borders = {Bool(c.Panels.Borders)}");
+        sb.AppendLine($"border_width = {F(c.Panels.BorderWidth)}");
+        sb.AppendLine($"shadow = {Bool(c.Panels.Shadow)}");
+        sb.AppendLine($"control_center_placement = \"{c.Panels.ControlCenterPlacement}\"");
+        sb.AppendLine($"control_center_position = \"{c.Panels.ControlCenterPosition}\"");
+        sb.AppendLine($"launcher_placement = \"{c.Panels.LauncherPlacement}\"");
+        sb.AppendLine($"launcher_position = \"{c.Panels.LauncherPosition}\"");
+        sb.AppendLine($"open_near_click_control_center = {Bool(c.Panels.OpenNearClickControlCenter)}");
+        sb.AppendLine($"open_near_click_launcher = {Bool(c.Panels.OpenNearClickLauncher)}");
+        sb.AppendLine($"floating_offset = {c.Panels.FloatingOffset}");
+        sb.AppendLine();
+        sb.AppendLine("[control_center]");
+        sb.AppendLine($"width = {c.ControlCenter.Width}");
         foreach (var (name, bar) in c.Bars)
         {
             sb.AppendLine();

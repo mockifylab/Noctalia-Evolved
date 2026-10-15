@@ -39,13 +39,11 @@ public static class AttachedPanelPlacement
         _ => new CornerShapes(Tl: CornerShape.Concave, Tr: CornerShape.Concave),
     };
 
-    public static Radii RadiiFor(string barPosition, float radius) => barPosition switch
-    {
-        "bottom" => new Radii(0f, 0f, radius, radius),
-        "left" => new Radii(0f, radius, radius, 0f),
-        "right" => new Radii(radius, 0f, 0f, radius),
-        _ => new Radii(radius, radius, 0f, 0f),
-    };
+    /// Upstream gives an attached panel the same radius on all four corners
+    /// (`bg->setRadii(Radii{radius, radius, radius, radius})` in panel_manager.cpp) and lets
+    /// CornerShapesFor decide which pair is concave. Zeroing the away-side corners would
+    /// square off the edge of the panel that faces away from the bar.
+    public static Radii RadiiFor(float radius) => new(radius);
 
     public static RectInsets InsetsFor(string barPosition, float radius)
     {
@@ -144,7 +142,7 @@ public static class AttachedPanelPlacement
             visualY - surfaceY,
             cornerRadius,
             CornerShapesFor(barPosition),
-            RadiiFor(barPosition, cornerRadius),
+            RadiiFor(cornerRadius),
             InsetsFor(barPosition, cornerRadius),
             RevealDirectionFor(barPosition));
     }

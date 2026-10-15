@@ -9,6 +9,8 @@ public readonly record struct PxRect(int X, int Y, int Width, int Height)
 {
     public int Right => X + Width;
     public int Bottom => Y + Height;
+
+    public bool Contains(int x, int y) => x >= X && x < Right && y >= Y && y < Bottom;
 }
 
 public sealed record BarPlacement(
@@ -24,6 +26,7 @@ public sealed record BarPlacement(
     double BackgroundOpacity,
     bool Shadow,
     bool AutoHide,
+    int PanelOverlap,
     string Layer);
 
 public sealed record BarWidgets(
@@ -117,6 +120,9 @@ public static class BarLayout
             BackgroundOpacity: bar.BackgroundOpacity,
             Shadow: bar.Shadow,
             AutoHide: bar.AutoHide,
+            // Left in logical px: the panel that consumes it scales by the same factor as
+            // its own geometry, so it has to start in the same units as the config.
+            PanelOverlap: bar.PanelOverlap,
             Layer: bar.Layer);
     }
 

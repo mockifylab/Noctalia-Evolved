@@ -24,19 +24,22 @@ internal sealed class BarWindow : Window
     private readonly Canvas _surface = new();
     private readonly List<WidgetView> _views = [];
     private readonly DispatcherTimer _tick;
+    private readonly BarInteractions? _interactions;
 
     public BarWindow(
         MonitorInfo monitor,
         BarPlacement placement,
         BarWidgets slots,
         BarViewModel model,
-        ThemeBrushes theme)
+        ThemeBrushes theme,
+        BarInteractions? interactions = null)
     {
         _monitor = monitor;
         _placement = placement;
         _slots = slots;
         _model = model;
         _theme = theme;
+        _interactions = interactions;
 
         Title = "Noctalia bar";
         WindowStyle = WindowStyle.None;
@@ -85,6 +88,11 @@ internal sealed class BarWindow : Window
 
     /// Where the window sits, in physical pixels.
     public PxRect ScreenRect => _placement.Surface;
+
+    /// The strip the panel nests against, and the display it belongs to.
+    public BarPlacement Placement => _placement;
+
+    public MonitorInfo Monitor => _monitor;
 
     public bool AutoHide => _placement.AutoHide;
 
@@ -158,7 +166,7 @@ internal sealed class BarWindow : Window
 
         foreach (var widget in widgets)
         {
-            var view = BarWidgetView.Create(widget, _model, _placement, _monitor, _theme, vertical);
+            var view = BarWidgetView.Create(widget, _model, _placement, _monitor, _theme, vertical, _interactions);
             if (view is null) continue; // no Windows backing, or no data on this machine
 
             panel.Children.Add(view.Element);

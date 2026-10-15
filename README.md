@@ -8,11 +8,13 @@ This is **not** a Linux desktop environment on Windows, and **not** a re-skin of
 shell. It reuses Noctalia's geometry, design tokens and config contract where the license
 permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 
-> **Status: the bar runs; panels and launcher do not yet.** `dotnet run --project
-> src/NoctaliaWin.App` shows a Noctalia bar on every monitor — concave silhouette, clock,
-> network, volume, battery, auto-hide, tray presence — backed by 275 passing tests. The
-> pop-out panels, the launcher window and the settings window are the next milestones.
-> See [Current state](#current-state).
+> **Status: the bar and its pop-out panels run; the launcher and settings windows do not
+> yet.** `dotnet run --project src/NoctaliaWin.App` shows a Noctalia bar on every monitor —
+> concave silhouette, clock, network, volume, battery, auto-hide, tray presence — and clicking
+> a widget opens the concave panel behind it: a real month calendar under the clock, and a
+> quick-settings panel that reads and writes the actual master volume. 345 tests pass. The
+> launcher window and the settings window are the next milestones. See
+> [Current state](#current-state).
 
 ## Current state
 
@@ -22,8 +24,8 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | Config (`config.toml`) load/save/validate/migrate | Done, unit-tested |
 | fzy fuzzy search + launcher ranking | Done, unit-tested (no window yet) |
 | Monitors, DPI, power, network, audio, startup, tray | Done against documented Win32/COM APIs |
-| Bar window (position, scale, auto-hide, widgets) | **Runs**; clock/network/volume/battery/spacer show live data |
-| Concave pop-out panel | Not built |
+| Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
+| Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement |
 | Launcher window | Not built (service layer is ready) |
 | Settings window | Not built (store is ready; edit `config.toml` by hand) |
 
@@ -31,8 +33,15 @@ Widgets that have no Windows backing yet are **skipped and reported**, never dra
 tiles: `media`, `clipboard`, `bluetooth`, `brightness`, `wallpaper`, `workspaces`, `text`,
 `tray` and `notifications`. The last two are on that list because reading another process's
 status-bar icons or toast content has no supported API. `launcher`, `settings`,
-`control-center` and `session` are named as supported in the catalog but are not drawn until
-their window exists.
+`control-center` and `session` are named as supported in the catalog but are not drawn as bar
+buttons yet; the panels they belong to are reached by clicking `clock`, `volume`, `network`
+and `battery`.
+
+What the panels knowingly do not do: `transparency_mode = "glass"` sets the card's opacity but
+cannot blur what is behind it, because WPF exposes no documented backdrop blur for a layered
+window; `shadow` is inert for panels as it is for the bar; and the control center's height is
+the height its rows actually occupy rather than a measure of live content, so a panel with
+more rows later will need the same constant revisited.
 
 Two bar options are knowingly inert: `shadow` (a drop shadow needs a bleed margin the
 placement math does not reserve yet) and `reserve_space` (shrinking the real work area means
@@ -98,6 +107,14 @@ or report a diagnostic telling you what was ignored. The file is versioned
 not fatal. Writes are atomic (temp file + replace), and a malformed file falls back to
 defaults while preserving your file for inspection.
 
+The panel keys are the upstream ones: `[shell.panel]` (`transparency_mode`, `borders`,
+`border_width`, `shadow`, `control_center_placement`, `control_center_position`,
+`open_near_click_control_center`, `launcher_placement`, `launcher_position`,
+`open_near_click_launcher`, `floating_offset`) and `[control_center] width`. A panel opens
+attached to the bar's corners by default; `control_center_placement = "floating"` gives a
+plain rounded card instead, and `control_center_position` chooses between centring it and
+hanging it off the edge the bar docked on.
+
 There is no settings window yet, so edit the file by hand and restart the app (or save while
 it runs: the bar rebuilds on the next config change it observes).
 
@@ -107,7 +124,7 @@ it runs: the bar rebuilds on the next config change it observes).
 |---|---|
 | `src/NoctaliaWin.Core` | Platform-independent: design tokens, palettes, concave corner + panel geometry, config schema/codec, settings store, fzy search, launcher ranking, bar layout/auto-hide/view model, service interfaces |
 | `src/NoctaliaWin.Windows` | Windows implementations of those interfaces (P/Invoke, COM). Kept thin so nothing else depends on Win32 |
-| `src/NoctaliaWin.App` | WPF app: bar window, theme brushes, composition root; panels, launcher and settings land here |
+| `src/NoctaliaWin.App` | WPF app: bar window, pop-out panel windows, theme brushes, composition root; launcher and settings land here |
 | `tests/NoctaliaWin.Tests` | xUnit suite for the Core, Windows and shell layers |
 | `tools` | Screen-capture helpers used to check shell windows by eye |
 | `docs/IMPLEMENTATION-ASSESSMENT.md` | Upstream inspection, reuse plan, Linux→Windows replacement table, risks |
@@ -118,6 +135,15 @@ it runs: the bar rebuilds on the next config change it observes).
 - **Concave corners are real geometry, not a bitmap.** Noctalia draws corners with a signed
   distance shader; `ShapeOutline` reproduces the same silhouette as vector arcs and lines so
   WPF renders them with antialiasing at any DPI.
+- **A panel reveals by moving its content, not its window.** The panel window is placed once
+  at its final surface and the painted body slides inside it, which is upstream's
+  `applyAttachedReveal`: the concave cutouts stay registered against the bar on every frame,
+  and the panel appears to grow out from behind it. The bars are re-raised above the panel
+  after it opens, because a panel that paints over its own bar shows no seam at all.
+- **One panel at a time, and the bar is never the way out.** Opening a second widget replaces
+  the first with no close animation (upstream's behaviour), and the click that opened a panel
+  cannot dismiss it: dismissal is Escape, a click outside the body, or the window losing
+  activation to another application.
 - **The bar is laid out in pixels, then divided once.** `BarLayout` turns a monitor and a
   config section into physical rectangles (device scale × bar scale × UI scale); the WPF
   window divides by that monitor's device scale to get DIPs, and positions itself with

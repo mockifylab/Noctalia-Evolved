@@ -5,6 +5,7 @@
 // background opacity is a per-bar setting: neither can be a static resource.
 using System.Windows;
 using System.Windows.Media;
+using NoctaliaWin.Core.Config;
 using NoctaliaWin.Core.Design;
 
 namespace NoctaliaWin.App.Design;
@@ -13,7 +14,7 @@ internal sealed class ThemeBrushes
 {
     private readonly Dictionary<ColorRole, Brush> _brushes = [];
 
-    public ThemeBrushes(Palette palette, double barBackgroundOpacity)
+    public ThemeBrushes(Palette palette, double barBackgroundOpacity, PanelTransparencyMode panelMode)
     {
         Palette = palette;
 
@@ -27,6 +28,16 @@ internal sealed class ThemeBrushes
             (byte)Math.Round(Math.Clamp(barBackgroundOpacity, 0, 1) * 255),
             surface.R, surface.G, surface.B));
 
+        // Panel opacity comes from the transparency mode, ported from upstream's card
+        // mapping. A soft or glass panel is genuinely translucent here — WPF has no
+        // documented backdrop blur behind a layered window, so the blur part of "glass" is
+        // not faked and the desktop shows through unblurred.
+        PanelOpacity = PanelSection.CardOpacity(panelMode, barBackgroundOpacity);
+        PanelBackground = Alpha(surface, PanelOpacity);
+
+        var variant = palette[ColorRole.SurfaceVariant];
+        PanelCard = Alpha(variant, PanelOpacity);
+
         var outline = palette[ColorRole.Outline];
         Outline = Freeze(Color.FromRgb(outline.R, outline.G, outline.B));
 
@@ -38,10 +49,17 @@ internal sealed class ThemeBrushes
 
     public Palette Palette { get; }
     public Brush BarBackground { get; }
+    public Brush PanelBackground { get; }
+    public Brush PanelCard { get; }
+    public double PanelOpacity { get; }
     public Brush Outline { get; }
     public Brush Hover { get; }
 
     public Brush this[ColorRole role] => _brushes[role];
+
+    public static SolidColorBrush Alpha(Rgb color, double opacity) => Freeze(Color.FromArgb(
+        (byte)Math.Round(Math.Clamp(opacity, 0, 1) * 255),
+        color.R, color.G, color.B));
 
     public static SolidColorBrush Freeze(Color color)
     {

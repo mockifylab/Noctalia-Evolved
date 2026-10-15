@@ -1,0 +1,147 @@
+using NoctaliaWin.Core.Config;
+using Xunit;
+
+namespace NoctaliaWin.Tests.Config;
+
+/// The panel sections are the config contract the pop-out surfaces read, so their defaults,
+/// round-trip and validation are pinned here rather than trusted from the codec.
+public sealed class PanelConfigTests
+{
+    [Fact]
+    public void DefaultsMatchNoctalia()
+    {
+        var panels = new PanelSection();
+
+        Assert.Equal("solid", panels.TransparencyMode);
+        Assert.True(panels.Borders);
+        Assert.Equal(1.0, panels.BorderWidth);
+        Assert.True(panels.Shadow);
+        Assert.Equal("attached", panels.ControlCenterPlacement);
+        Assert.Equal("auto", panels.ControlCenterPosition);
+        Assert.Equal("floating", panels.LauncherPlacement);
+        Assert.Equal("center", panels.LauncherPosition);
+        Assert.False(panels.OpenNearClickControlCenter);
+        Assert.Equal(8, panels.FloatingOffset);
+        Assert.Equal(700, new ControlCenterSection().Width);
+    }
+
+    [Fact]
+    public void AFullConfigRoundTripsThroughTheCodec()
+    {
+        var config = AppConfig.Default();
+        config.Panels.TransparencyMode = "glass";
+        config.Panels.Borders = false;
+        config.Panels.BorderWidth = 2;
+        config.Panels.ControlCenterPlacement = "floating";
+        config.Panels.ControlCenterPosition = "top_right";
+        config.Panels.OpenNearClickControlCenter = true;
+        config.Panels.FloatingOffset = 24;
+        config.ControlCenter.Width = 520;
+
+        var (reloaded, diagnostics) = ConfigToml.Load(ConfigToml.Save(config));
+
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.Equal("glass", reloaded.Panels.TransparencyMode);
+        Assert.False(reloaded.Panels.Borders);
+        Assert.Equal(2.0, reloaded.Panels.BorderWidth);
+        Assert.Equal("floating", reloaded.Panels.ControlCenterPlacement);
+        Assert.Equal("top_right", reloaded.Panels.ControlCenterPosition);
+        Assert.True(reloaded.Panels.OpenNearClickControlCenter);
+        Assert.Equal(24, reloaded.Panels.FloatingOffset);
+        Assert.Equal(520, reloaded.ControlCenter.Width);
+    }
+
+    [Fact]
+    public void InvalidValuesFallBackWithADiagnosticInsteadOfFailingToLoad()
+    {
+        var (config, diagnostics) = ConfigToml.Load("""
+            [shell.panel]
+            transparency_mode = "frosted"
+            control_center_placement = "side"
+            border_width = 40
+            floating_offset = -9
+
+            [control_center]
+            width = 12
+            """);
+
+        Assert.Equal("solid", config.Panels.TransparencyMode);
+        Assert.Equal("attached", config.Panels.ControlCenterPlacement);
+        Assert.Equal(8.0, config.Panels.BorderWidth);
+        Assert.Equal(0, config.Panels.FloatingOffset);
+        Assert.Equal(240, config.ControlCenter.Width);
+
+        Assert.Contains(diagnostics, d => d.Path == "shell.panel.transparency_mode");
+        Assert.Contains(diagnostics, d => d.Path == "shell.panel.control_center_placement");
+        Assert.Contains(diagnostics, d => d.Path == "control_center.width");
+    }
+
+    [Fact]
+    public void AnAbsentPanelSectionLeavesTheDefaultsAlone()
+    {
+        var (config, diagnostics) = ConfigToml.Load("""
+            [shell]
+            time_format = "%H:%M"
+            """);
+
+        Assert.Equal("solid", config.Panels.TransparencyMode);
+        Assert.Equal(700, config.ControlCenter.Width);
+        Assert.Equal("%H:%M", config.Shell.TimeFormat);
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
+    }
+
+    [Fact]
+    public void ControlCenterIsOnlyAttachedWhenTheConfigSaysSo()
+    {
+        Assert.True(new PanelSection().ControlCenterIsAttached);
+        Assert.False(new PanelSection { ControlCenterPlacement = "floating" }.ControlCenterIsAttached);
+    }
+
+    [Theory]
+    [InlineData("solid", 1.0)]
+    [InlineData("soft", 0.92)]
+    [InlineData("glass", 0.75)]
+    public void TransparencyModesMapToUpstreamCardOpacities(string mode, double expected)
+    {
+        // Upstream: solid is opaque, soft is base+0.08 clamped to [0.82, 0.92], glass is
+        // base+0.10 clamped to [0.62, 0.75]. At the default opacity both hit their ceiling.
+        var parsed = new PanelSection { TransparencyMode = mode }.ParsedTransparencyMode;
+
+        Assert.Equal(expected, PanelSection.CardOpacity(parsed, 1.0), 3);
+    }
+
+    [Fact]
+    public void GlassOpacityHasAFloorSoTextStaysReadable()
+    {
+        var glass = PanelSection.CardOpacity(PanelTransparencyMode.Glass, 0.1);
+        var soft = PanelSection.CardOpacity(PanelTransparencyMode.Soft, 0.0);
+
+        Assert.Equal(0.62, glass, 3);
+        Assert.Equal(0.82, soft, 3);
+    }
+
+    [Fact]
+    public void ModeNamesRoundTripBothWays()
+    {
+        foreach (var mode in Enum.GetValues<PanelTransparencyMode>())
+        {
+            var name = PanelSection.ModeName(mode);
+            Assert.Equal(mode, new PanelSection { TransparencyMode = name }.ParsedTransparencyMode);
+        }
+    }
+
+    [Fact]
+    public void CloningACofigCarriesThePanelSections()
+    {
+        var config = AppConfig.Default();
+        config.Panels.FloatingOffset = 30;
+        config.ControlCenter.Width = 480;
+
+        var clone = config.Clone();
+        clone.Panels.FloatingOffset = 1;
+        clone.ControlCenter.Width = 1;
+
+        Assert.Equal(30, config.Panels.FloatingOffset);
+        Assert.Equal(480, config.ControlCenter.Width);
+    }
+}

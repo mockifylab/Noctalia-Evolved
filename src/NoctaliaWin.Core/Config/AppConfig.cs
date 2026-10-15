@@ -89,6 +89,99 @@ public sealed class AccessibilitySection
     public AccessibilitySection Clone() => new() { UiScale = UiScale };
 }
 
+/// Attached vs floating, and the opacity mode, for the pop-out panels. Key names mirror
+/// Noctalia's `[shell.panel]` (config_types.h PanelConfig — MIT, noctalia-dev); only the
+/// panels this build actually opens are modelled.
+public sealed class PanelSection
+{
+    public string TransparencyMode { get; set; } = "solid"; // solid | soft | glass
+    public bool Borders { get; set; } = true;
+    public double BorderWidth { get; set; } = 1.0;
+    public bool Shadow { get; set; } = true;
+    public string ControlCenterPlacement { get; set; } = "attached"; // attached | floating
+    public string ControlCenterPosition { get; set; } = "auto";
+    public string LauncherPlacement { get; set; } = "floating";
+    public string LauncherPosition { get; set; } = "center";
+    public bool OpenNearClickControlCenter { get; set; }
+    public bool OpenNearClickLauncher { get; set; }
+
+    /// Logical px gap between a floating panel and the bar edge.
+    public int FloatingOffset { get; set; } = 8;
+
+    public static string ModeName(PanelTransparencyMode mode) => mode switch
+    {
+        PanelTransparencyMode.Soft => "soft",
+        PanelTransparencyMode.Glass => "glass",
+        _ => "solid",
+    };
+
+    /// Ported from panelCardOpacityForTransparencyMode (config_types.cpp): the alpha the
+    /// panel's own cards and sections use for a given mode. `baseOpacity` is the panel's
+    /// background opacity, which this port derives from the bar's, since Noctalia's
+    /// standalone-panel opacity key has no Windows surface to apply to yet.
+    ///
+    /// "glass" asks for background blur as well as low opacity. WPF has no documented
+    /// backdrop blur behind a layered window, so this build applies the opacity and not the
+    /// blur; the difference is visible and is reported as a diagnostic rather than faked.
+    public static double CardOpacity(PanelTransparencyMode mode, double baseOpacity)
+    {
+        double clamped = Math.Clamp(baseOpacity, 0.0, 1.0);
+        return mode switch
+        {
+            PanelTransparencyMode.Soft => Math.Clamp(clamped + 0.08, 0.82, 0.92),
+            PanelTransparencyMode.Glass => Math.Clamp(clamped + 0.10, 0.62, 0.75),
+            _ => 1.0,
+        };
+    }
+
+    /// Upstream ships three control-center sidebar modes and scales the configured width
+    /// down for the two compact ones. This build renders the compact layout, so the factor
+    /// is a constant rather than a config key nothing can set yet.
+    public const double CompactSidebarWidthFactor = 0.85;
+
+    public PanelTransparencyMode ParsedTransparencyMode => TransparencyMode switch
+    {
+        "soft" => PanelTransparencyMode.Soft,
+        "glass" => PanelTransparencyMode.Glass,
+        _ => PanelTransparencyMode.Solid,
+    };
+
+    public bool ControlCenterIsAttached => ControlCenterPlacement != "floating";
+
+    public PanelSection Clone() => new()
+    {
+        TransparencyMode = TransparencyMode,
+        Borders = Borders,
+        BorderWidth = BorderWidth,
+        Shadow = Shadow,
+        ControlCenterPlacement = ControlCenterPlacement,
+        ControlCenterPosition = ControlCenterPosition,
+        LauncherPlacement = LauncherPlacement,
+        LauncherPosition = LauncherPosition,
+        OpenNearClickControlCenter = OpenNearClickControlCenter,
+        OpenNearClickLauncher = OpenNearClickLauncher,
+        FloatingOffset = FloatingOffset,
+    };
+}
+
+public enum PanelTransparencyMode
+{
+    Solid,
+    Soft,
+    Glass,
+}
+
+/// Mirrors Noctalia's `[control_center]` sizing keys. The tabs and their shortcuts are
+/// Windows-specific content and are not modelled as config yet.
+public sealed class ControlCenterSection
+{
+    public const int DefaultWidth = 700;
+
+    public int Width { get; set; } = DefaultWidth;
+
+    public ControlCenterSection Clone() => new() { Width = Width };
+}
+
 public sealed class ShellSection
 {
     // Raw strftime-ish formats kept for config parity; the UI layer converts them.
@@ -112,6 +205,8 @@ public sealed class AppConfig
     public ThemeSection Theme { get; set; } = new();
     public AccessibilitySection Accessibility { get; set; } = new();
     public ShellSection Shell { get; set; } = new();
+    public PanelSection Panels { get; set; } = new();
+    public ControlCenterSection ControlCenter { get; set; } = new();
 
     /// Bars keyed by name; "main" always exists.
     public Dictionary<string, BarSection> Bars { get; set; } = new() { ["main"] = new BarSection() };
@@ -124,6 +219,8 @@ public sealed class AppConfig
         Theme = Theme.Clone(),
         Accessibility = Accessibility.Clone(),
         Shell = Shell.Clone(),
+        Panels = Panels.Clone(),
+        ControlCenter = ControlCenter.Clone(),
         Bars = Bars.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()),
     };
 

@@ -27,6 +27,7 @@ public partial class App : Application
 
     private readonly List<BarState> _bars = [];
     private BarViewModel? _model;
+    private PanelHost? _panels;
     private DispatcherTimer? _pointerPoll;
     private DispatcherTimer? _slide;
     private bool _rebuildQueued;
@@ -60,7 +61,10 @@ public partial class App : Application
             _ => PaletteMode.Dark,
         };
 
-        return new ThemeBrushes(paletteSet.For(mode), config.Main.BackgroundOpacity);
+        return new ThemeBrushes(
+            paletteSet.For(mode),
+            config.Main.BackgroundOpacity,
+            config.Panels.ParsedTransparencyMode);
     }
 
     private void BuildBars()
@@ -75,10 +79,26 @@ public partial class App : Application
             _settings,
             action => Dispatcher.BeginInvoke(action));
 
+        _panels = new PanelHost(_settings, _model, () => [.. _bars.Select(b => b.Current)]);
+        _panels.Changed += RaiseBars;
+
         foreach (var monitor in _placement.Monitors)
         {
             var placement = BarLayout.Compute(monitor, config.Main, config.Accessibility.UiScale);
-            var window = new BarWindow(monitor, placement, BarLayout.ResolveSlots(config.Main), _model, theme);
+            var slots = BarLayout.ResolveSlots(config.Main);
+
+            // The click handler needs the window it belongs to, and the window needs the
+            // handler, so the window lands in `built` before any click can reach the lambda.
+            BarWindow? built = null;
+            var interactions = new BarInteractions(
+                _panels.OpensPanel,
+                (widget, point) =>
+                {
+                    if (built is { } bar) _panels?.ToggleFromClick(widget, bar, theme, point);
+                });
+
+            var window = new BarWindow(monitor, placement, slots, _model, theme, interactions);
+            built = window;
 
             // Positioned before Show so the first painted frame is already on the right
             // monitor; WPF's DIP Left/Top cannot be trusted across mixed-DPI displays.
@@ -148,8 +168,10 @@ public partial class App : Application
             bool onBar = pointer is { } p && BarAutoHide.Contains(bar.Window.ScreenRect, p.X, p.Y);
             bool onBand = pointer is { } q && BarAutoHide.Contains(bar.Window.TriggerScreenBand, q.X, q.Y);
 
-            // panelOpen stays false until the pop-out panels exist.
-            bool shown = BarAutoHide.IsShown(autoHide: true, onBar, onBand, panelOpen: false);
+            // An open panel keeps its bar on screen: the panel is drawn against the bar's
+            // corners, so a bar that slid away would leave the panel hanging in space.
+            bool shown = BarAutoHide.IsShown(
+                autoHide: true, onBar, onBand, panelOpen: _panels?.KeepsBarShown ?? false);
             if (shown == bar.Shown) continue;
 
             // Re-targeting mid-slide is allowed: the new slide starts from wherever the
@@ -202,12 +224,27 @@ public partial class App : Application
 
     private void CloseBars()
     {
+        if (_panels is not null)
+        {
+            _panels.Changed -= RaiseBars;
+            _panels.Dispose();
+            _panels = null;
+        }
+
         foreach (var bar in _bars)
             bar.Window.Close();
 
         _bars.Clear();
         _model?.Dispose();
         _model = null;
+    }
+
+    /// Put every bar back on top of its own z-band. A panel places itself topmost when it
+    /// opens, so the bars have to be re-raised after it or the reveal shows no seam at all.
+    private void RaiseBars()
+    {
+        foreach (var bar in _bars)
+            bar.Window.Place(bar.Current);
     }
 
     private void Quit()

@@ -139,14 +139,17 @@ public class AttachedPanelPlacementTests
     }
 
     [Fact]
-    public void Radii_AreAssignedToTheAwaySideCorners()
+    public void Radii_AreUniformAndTheShapesDecideWhichPairIsConcave()
     {
-        // Upstream keeps the bar-side radius separate (it animates with reveal
-        // progress), so static radii land on the away-side convex corners.
-        Assert.Equal(new Radii(0, 0, 12, 12), AttachedPanelPlacement.RadiiFor("bottom", 12));
-        Assert.Equal(new Radii(12, 12, 0, 0), AttachedPanelPlacement.RadiiFor("top", 12));
-        Assert.Equal(new Radii(0, 12, 12, 0), AttachedPanelPlacement.RadiiFor("left", 12));
-        Assert.Equal(new Radii(12, 0, 0, 12), AttachedPanelPlacement.RadiiFor("right", 12));
+        // Upstream sets Radii{r, r, r, r} on the attached panel and uses cornerShapes to mark
+        // the bar-side pair concave. Squaring the bar-side radii instead would leave a step
+        // where the panel meets the bar and lose the rounded away-side edge.
+        Assert.Equal(new Radii(12, 12, 12, 12), AttachedPanelPlacement.RadiiFor(12));
+
+        var top = Place(TopBar, "top", anchorX: 960);
+        Assert.Equal(CornerShape.Concave, top.Corners.Tl);
+        Assert.Equal(12f, top.Radii.Tl);
+        Assert.Equal(12f, top.Radii.Br);
     }
 
     [Fact]

@@ -40,51 +40,14 @@ internal static class BarSurface
         var surface = placement.Surface;
         var shape = placement.Shape;
 
-        var segments = ShapeOutline.Build(
+        return Design.OutlineGeometry.Build(
             surface.Width, surface.Height,
-            shape.Radii, shape.Corners, shape.LogicalInset);
-
-        double sx = Math.Max(monitor.ScaleX, 0.01);
-        double sy = Math.Max(monitor.ScaleY, 0.01);
-
-        Point At(Pt p) => new(p.X / sx, p.Y / sy);
-
-        var figure = new PathFigure { IsClosed = true, IsFilled = true };
-        if (segments.Count == 0)
-            return Geometry.Empty;
-
-        figure.StartPoint = At(segments[0].From);
-        foreach (var segment in segments)
-        {
-            if (segment.Center is not { } center)
-            {
-                figure.Segments.Add(new LineSegment(At(segment.To), true));
-                continue;
-            }
-
-            // A quarter arc: the radius is the distance to the centre, which is the same
-            // for both endpoints. Each axis is divided by its own scale, so a non-square
-            // DPI setting turns the arc elliptical instead of distorting the bar.
-            double radius = MathF.Sqrt(
-                MathF.Pow(segment.From.X - center.X, 2) + MathF.Pow(segment.From.Y - center.Y, 2));
-
-            figure.Segments.Add(new ArcSegment(
-                At(segment.To),
-                new Size(radius / sx, radius / sy),
-                rotationAngle: 0,
-                isLargeArc: false,
-                segment.Clockwise ? SweepDirection.Clockwise : SweepDirection.Counterclockwise,
-                isStroked: true));
-        }
-
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(figure);
-        geometry.Freeze();
-        return geometry;
+            shape.Radii, shape.Corners, shape.LogicalInset,
+            monitor.ScaleX, monitor.ScaleY);
     }
 
     /// Stroke thickness in DIPs for the bar's outline: Noctalia draws it one device pixel
     /// wide, so it must not grow with DPI.
     public static double OutlineThickness(MonitorInfo monitor) =>
-        StyleTokens.BorderWidth / Math.Max(monitor.ScaleX, 0.01);
+        Design.OutlineGeometry.StrokeThickness(monitor.ScaleX);
 }

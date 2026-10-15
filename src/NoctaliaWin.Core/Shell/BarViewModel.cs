@@ -64,7 +64,9 @@ public sealed class BarViewModel : IDisposable
         "network" => _status.Snapshot.NetworkConnected
             ? $"Connected ({_status.Snapshot.NetworkKind ?? "network"})"
             : "Not connected",
-        "volume" => _audio.Muted ? "Muted - click to unmute, scroll to change" : "Click to mute, scroll to change",
+        "volume" => _audio.Muted
+            ? "Muted - the panel has the unmute control, scroll to change level"
+            : "Click for quick settings, scroll to change level",
         "battery" => BatteryTooltip,
         _ => null,
     };
@@ -82,7 +84,24 @@ public sealed class BarViewModel : IDisposable
 
     public DateTimeOffset Now => _time.GetLocalNow();
 
+    /// The panel's headline date, from `shell.date_format`.
+    public string DateText => Strftime.Format(_settings.Current.Shell.DateFormat, Now);
+
+    public string ClockText => Strftime.Format(_settings.Current.Shell.TimeFormat, Now);
+
+    /// null when the machine has no output endpoint, which the panel shows as a disabled
+    /// control rather than a slider wired to nothing.
+    public int? VolumePercent => _audio.MasterVolumePercent;
+
+    public string NetworkSummary => _status.Snapshot.NetworkConnected
+        ? $"Connected ({_status.Snapshot.NetworkKind ?? "network"})"
+        : "Not connected";
+
+    public string BatterySummary => HasBattery ? BatteryTooltip ?? "Battery" : "No battery in this machine";
+
     public void ToggleMute() => _audio.ToggleMute();
+
+    public void SetVolume(int percent) => _audio.SetMasterVolume(Math.Clamp(percent, 0, 100));
 
     public void AdjustVolume(int deltaPercent)
     {
