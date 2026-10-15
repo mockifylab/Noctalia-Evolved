@@ -95,8 +95,14 @@ public interface ISystemThemeService
 
 public interface IHotkeyService
 {
-    /// Registers a global hotkey; returns false if the combination is taken.
-    bool Register(string gesture, Action callback); // e.g. "CTRL+ALT+SPACE"
+    /// Binds a global shortcut such as "CTRL+ALT+SPACE". Returns null once the key is live,
+    /// or the reason it is not: a gesture this build cannot parse, or a combination another
+    /// application already owns. An empty gesture asks for no binding and succeeds by doing
+    /// nothing, so callers never have to branch on it.
+    /// The callback runs on the thread that owns the service.
+    string? Register(string gesture, Action callback);
+
+    /// Drops every binding this process took, in reverse order.
     void UnregisterAll();
 }
 

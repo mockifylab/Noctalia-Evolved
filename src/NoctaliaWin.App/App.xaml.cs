@@ -24,6 +24,7 @@ public partial class App : Application
     private readonly AudioService _audio = new();
     private readonly SystemThemeService _systemTheme = new();
     private readonly TrayService _tray = new();
+    private readonly HotkeyService _hotkeys = new();
 
     private readonly List<BarState> _bars = [];
     private BarViewModel? _model;
@@ -67,6 +68,25 @@ public partial class App : Application
             _apps, new ProcessLauncher(), action => Dispatcher.BeginInvoke(action));
     }
 
+    /// Re-bound on every rebuild, because the binding itself is configurable and a rebuild
+    /// has to be able to pick up a changed key. Unregistering first is what makes that safe:
+    /// a second RegisterHotKey for the same combination would come back as "already taken",
+    /// blamed on some other application.
+    private void BindLauncherHotkey()
+    {
+        _hotkeys.UnregisterAll();
+
+        var error = _hotkeys.Register(
+            _settings.Current.Launcher.Hotkey,
+            () => _panels?.ToggleLauncher(CurrentTheme()));
+
+        // The full reason belongs in the settings window; the tray can only say that the
+        // shortcut is not live, which is the part a user would otherwise have to guess at.
+        _tray.SetTooltip(error is null
+            ? "Noctalia for Windows"
+            : "Noctalia for Windows - launcher hotkey unavailable");
+    }
+
     private ThemeBrushes CurrentTheme()
     {
         var config = _settings.Current;
@@ -104,6 +124,8 @@ public partial class App : Application
             () => _bars.Count > 0 ? _bars[0].Window : null,
             RequireLauncher);
         _panels.Changed += RaiseBars;
+
+        BindLauncherHotkey();
 
         foreach (var monitor in _placement.Monitors)
         {
@@ -281,6 +303,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _launcher?.Dispose();
+        _hotkeys.Dispose();
         _status.Dispose();
         _audio.Dispose();
         _systemTheme.Dispose();

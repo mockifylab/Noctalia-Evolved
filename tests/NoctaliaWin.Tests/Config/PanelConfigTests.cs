@@ -98,6 +98,7 @@ public sealed class PanelConfigTests
         Assert.Equal(760, launcher.Width);
         Assert.Equal("top", launcher.SearchPosition);
         Assert.True(launcher.SearchOnTop);
+        Assert.Equal("CTRL+ALT+SPACE", launcher.Hotkey);
         Assert.False(new PanelSection().LauncherIsAttached);
     }
 
@@ -107,6 +108,7 @@ public sealed class PanelConfigTests
         var config = AppConfig.Default();
         config.Launcher.Width = 900;
         config.Launcher.SearchPosition = "bottom";
+        config.Launcher.Hotkey = "SUPER+SHIFT+D";
         config.Panels.LauncherPlacement = "attached";
         config.Panels.LauncherPosition = "auto";
         config.Panels.OpenNearClickLauncher = true;
@@ -116,6 +118,7 @@ public sealed class PanelConfigTests
         Assert.DoesNotContain(diagnostics, d => d.IsError);
         Assert.Equal(900, reloaded.Launcher.Width);
         Assert.False(reloaded.Launcher.SearchOnTop);
+        Assert.Equal("SUPER+SHIFT+D", reloaded.Launcher.Hotkey);
         Assert.True(reloaded.Panels.LauncherIsAttached);
         Assert.Equal("auto", reloaded.Panels.LauncherPosition);
         Assert.True(reloaded.Panels.OpenNearClickLauncher);
@@ -185,14 +188,61 @@ public sealed class PanelConfigTests
         config.Panels.FloatingOffset = 30;
         config.ControlCenter.Width = 480;
         config.Launcher.Width = 640;
+        config.Launcher.Hotkey = "CTRL+ALT+F2";
 
         var clone = config.Clone();
         clone.Panels.FloatingOffset = 1;
         clone.ControlCenter.Width = 1;
         clone.Launcher.Width = 1;
+        clone.Launcher.Hotkey = "x";
 
         Assert.Equal(30, config.Panels.FloatingOffset);
         Assert.Equal(480, config.ControlCenter.Width);
         Assert.Equal(640, config.Launcher.Width);
+        Assert.Equal("CTRL+ALT+F2", config.Launcher.Hotkey);
+    }
+
+    [Fact]
+    public void AnEmptyHotkeyIsAValidWayToTurnTheBindingOff()
+    {
+        var (config, diagnostics) = ConfigToml.Load("""
+            [shell.launcher]
+            hotkey = ""
+            """);
+
+        Assert.Equal("", config.Launcher.Hotkey);
+        Assert.DoesNotContain(diagnostics, d => d.Path == "shell.launcher.hotkey");
+
+        // ...and it survives a save, so turning it off is not undone by the next write.
+        var (reloaded, _) = ConfigToml.Load(ConfigToml.Save(config));
+        Assert.Equal("", reloaded.Launcher.Hotkey);
+    }
+
+    [Fact]
+    public void AnUnusableHotkeyKeepsTheDefaultAndSaysWhy()
+    {
+        // A bare key would be grabbed out of every application's hands, so the config layer
+        // refuses it loudly instead of registering it and swallowing the keystroke.
+        var (config, diagnostics) = ConfigToml.Load("""
+            [shell.launcher]
+            hotkey = "SPACE"
+            """);
+
+        Assert.Equal(LauncherSection.DefaultHotkey, config.Launcher.Hotkey);
+        var diagnostic = Assert.Single(diagnostics, d => d.Path == "shell.launcher.hotkey");
+        Assert.False(diagnostic.IsError);
+        Assert.Contains("no modifier", diagnostic.Message);
+    }
+
+    [Fact]
+    public void AHotkeyIsStoredTheWayTheUserWroteIt()
+    {
+        var (config, diagnostics) = ConfigToml.Load("""
+            [shell.launcher]
+            hotkey = "mod4+shift+space"
+            """);
+
+        Assert.Equal("mod4+shift+space", config.Launcher.Hotkey);
+        Assert.DoesNotContain(diagnostics, d => d.Path == "shell.launcher.hotkey");
     }
 }

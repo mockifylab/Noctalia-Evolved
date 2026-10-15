@@ -5,6 +5,7 @@
 // (MIT License, Copyright (c) 2026 noctalia-dev).
 using System.Globalization;
 using System.Text;
+using NoctaliaWin.Core.Input;
 
 namespace NoctaliaWin.Core.Config;
 
@@ -450,6 +451,12 @@ public static class ConfigToml
         s.Width = ClampI(t, "width", s.Width, LauncherSection.MinWidth, LauncherSection.MaxWidth, "shell.launcher", d);
         Enum(t, "search_position", s.SearchPosition, v => v is "top" or "bottom",
             nv => s.SearchPosition = nv, "shell.launcher", d);
+
+        if (!t.Entries.ContainsKey("hotkey")) return;
+        var raw = GetString(t, "hotkey", s.Hotkey, "shell.launcher", d);
+        // A blank value is a valid answer - it means the user turned the binding off.
+        if (HotkeyGesture.TryParse(raw, out _, out var reason)) s.Hotkey = raw.Trim();
+        else d.Add(new("shell.launcher.hotkey", reason ?? "not a usable hotkey; using default", false));
     }
 
     /// The `[shell.panel].*_position` values upstream accepts, as far as this port models
@@ -507,6 +514,7 @@ public static class ConfigToml
         sb.AppendLine("[shell.launcher]");
         sb.AppendLine($"width = {c.Launcher.Width}");
         sb.AppendLine($"search_position = \"{c.Launcher.SearchPosition}\"");
+        sb.AppendLine($"hotkey = \"{c.Launcher.Hotkey}\"");
         sb.AppendLine();
         sb.AppendLine("[control_center]");
         sb.AppendLine($"width = {c.ControlCenter.Width}");

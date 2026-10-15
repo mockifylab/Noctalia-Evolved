@@ -195,8 +195,14 @@ public sealed class LauncherSection
     public const int MinWidth = 560;
     public const int MaxWidth = 1200;
 
+    /// A Windows-side addition: upstream's global shortcuts belong to the Wayland compositor,
+    /// which this port has none of, so the launcher needs a key Windows itself can hand us.
+    /// Empty means no global hotkey, leaving the bar button and the tray click as the doors.
+    public const string DefaultHotkey = "CTRL+ALT+SPACE";
+
     public int Width { get; set; } = DefaultWidth;
     public string SearchPosition { get; set; } = "top"; // top | bottom
+    public string Hotkey { get; set; } = DefaultHotkey;
 
     public bool SearchOnTop => SearchPosition != "bottom";
 
@@ -204,6 +210,7 @@ public sealed class LauncherSection
     {
         Width = Width,
         SearchPosition = SearchPosition,
+        Hotkey = Hotkey,
     };
 }
 
