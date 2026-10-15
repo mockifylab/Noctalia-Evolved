@@ -333,6 +333,9 @@ public static class ConfigToml
 
             if (GetTable(shell, "panel") is { } panel)
                 ReadPanel(panel, config.Panels, diagnostics);
+
+            if (GetTable(shell, "launcher") is { } launcher)
+                ReadLauncher(launcher, config.Launcher, diagnostics);
         }
 
         if (GetTable(root, "control_center") is { } controlCenter)
@@ -438,6 +441,17 @@ public static class ConfigToml
         s.FloatingOffset = ClampI(t, "floating_offset", s.FloatingOffset, 0, 128, "shell.panel", d);
     }
 
+    /// The `[shell.launcher]` keys with a Windows meaning in this build. Everything else in
+    /// upstream's launcher section (views, providers, icons, usage sorting) has no rendered
+    /// surface here yet, so it is not read: an unknown key keeps its default instead of being
+    /// accepted and then silently dropped.
+    private static void ReadLauncher(MiniTomlTable t, LauncherSection s, List<ConfigDiagnostic> d)
+    {
+        s.Width = ClampI(t, "width", s.Width, LauncherSection.MinWidth, LauncherSection.MaxWidth, "shell.launcher", d);
+        Enum(t, "search_position", s.SearchPosition, v => v is "top" or "bottom",
+            nv => s.SearchPosition = nv, "shell.launcher", d);
+    }
+
     /// The `[shell.panel].*_position` values upstream accepts, as far as this port models
     /// placement. Screen-anchored positions are parsed but the first panel build only
     /// honours "auto" (bar-relative) and "center".
@@ -489,6 +503,10 @@ public static class ConfigToml
         sb.AppendLine($"open_near_click_control_center = {Bool(c.Panels.OpenNearClickControlCenter)}");
         sb.AppendLine($"open_near_click_launcher = {Bool(c.Panels.OpenNearClickLauncher)}");
         sb.AppendLine($"floating_offset = {c.Panels.FloatingOffset}");
+        sb.AppendLine();
+        sb.AppendLine("[shell.launcher]");
+        sb.AppendLine($"width = {c.Launcher.Width}");
+        sb.AppendLine($"search_position = \"{c.Launcher.SearchPosition}\"");
         sb.AppendLine();
         sb.AppendLine("[control_center]");
         sb.AppendLine($"width = {c.ControlCenter.Width}");

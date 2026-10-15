@@ -27,6 +27,10 @@ public sealed class PanelCoordinator
     public const string CalendarPanel = "calendar";
     public const string ControlCenterPanel = "control-center";
 
+    /// The launcher shares the panel machinery because it is the same thing on screen: a
+    /// surface that grows out of the bar, takes focus, and goes away on Escape.
+    public const string LauncherPanel = "launcher";
+
     /// The bar widgets that open a panel on click. Anything else in the bar is a label.
     public static bool OpensPanel(string widget) => widget.ToLowerInvariant() switch
     {
@@ -35,6 +39,8 @@ public sealed class PanelCoordinator
         "network" => true,
         "battery" => true,
         "control-center" => true,
+        "launcher" => true,
+        "settings" => false, // opens its own window, not a panel
         _ => false,
     };
 
@@ -43,6 +49,7 @@ public sealed class PanelCoordinator
     public static string PanelFor(string widget) => widget.ToLowerInvariant() switch
     {
         "clock" => CalendarPanel,
+        "launcher" => LauncherPanel,
         _ => ControlCenterPanel,
     };
 

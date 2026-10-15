@@ -39,6 +39,35 @@ public static class PanelLayout
     /// measuring and re-placing the window mid-reveal.
     public const double CalendarLogicalWidth = 320;
 
+    /// The launcher's rows: a search field, `LauncherModel.VisibleRows` result rows, and the
+    /// line under them that reports a failed launch. Fixed heights because the window is
+    /// placed before it is measured, and a reveal that resized mid-flight would tear the seam
+    /// with the bar.
+    public const double LauncherSearchRowHeight = 40;
+    public const double LauncherResultRowHeight = 36;
+    public const double LauncherStatusRowHeight = 22;
+
+    /// The gap between the launcher's three blocks. The window is placed before it is
+    /// measured, so the rendered margins have to add up to this height exactly.
+    public const double LauncherGap = StyleTokens.SpaceSm;
+
+    public static double LauncherLogicalHeight =>
+        2 * StyleTokens.PanelPadding
+        + LauncherSearchRowHeight
+        + LauncherGap
+        + LauncherModel.VisibleRows * LauncherResultRowHeight
+        + LauncherGap
+        + LauncherStatusRowHeight;
+
+    /// The logical size a panel asks for, per its id.
+    public static (double Width, double Height) LogicalSize(
+        string panelId, ControlCenterSection controlCenter, LauncherSection launcher) => panelId switch
+        {
+            PanelCoordinator.CalendarPanel => (CalendarLogicalWidth, CalendarLogicalHeight),
+            PanelCoordinator.LauncherPanel => (launcher.Width, LauncherLogicalHeight),
+            _ => (ControlCenterLogicalWidth(controlCenter), ControlCenterLogicalHeight),
+        };
+
     /// The logical width the control center asks for: `control_center.width` is the
     /// full-sidebar size, and the compact sidebar scales it down.
     public static double ControlCenterLogicalWidth(ControlCenterSection section) =>
@@ -148,6 +177,7 @@ public static class PanelLayout
         MonitorInfo monitor,
         PanelSection panels,
         ControlCenterSection controlCenter,
+        LauncherSection launcher,
         string panelId,
         BarPlacement? bar = null)
     {
@@ -155,9 +185,10 @@ public static class PanelLayout
         double sx = Math.Max(monitor.ScaleX, 0.01) * zoom;
         double sy = Math.Max(monitor.ScaleY, 0.01) * zoom;
 
-        bool calendar = panelId == PanelCoordinator.CalendarPanel;
-        double logicalWidth = calendar ? CalendarLogicalWidth : ControlCenterLogicalWidth(controlCenter);
-        double logicalHeight = calendar ? CalendarLogicalHeight : ControlCenterLogicalHeight;
+        var (logicalWidth, logicalHeight) = LogicalSize(panelId, controlCenter, launcher);
+        string position = panelId == PanelCoordinator.LauncherPanel
+            ? panels.LauncherPosition
+            : panels.ControlCenterPosition;
 
         int width = Math.Max(1, (int)Math.Round(logicalWidth * sx));
         int height = Math.Max(1, (int)Math.Round(logicalHeight * sy));
@@ -166,7 +197,7 @@ public static class PanelLayout
 
         // "auto" hangs the card off the edge the bar docks on; "center" (and a build with no
         // bar to hang from) centres it in the work area.
-        bool centerBoth = panels.ControlCenterPosition == "center" || bar is null;
+        bool centerBoth = position == "center" || bar is null;
         bool barIsVertical = bar is { Position: "left" or "right" };
 
         int left = monitor.WorkLeft + Math.Max(0, (monitor.WorkWidth - width) / 2);

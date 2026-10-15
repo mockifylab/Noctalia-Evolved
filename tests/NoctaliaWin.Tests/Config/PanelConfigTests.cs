@@ -91,6 +91,54 @@ public sealed class PanelConfigTests
     }
 
     [Fact]
+    public void LauncherDefaultsMatchNoctalia()
+    {
+        var launcher = new LauncherSection();
+
+        Assert.Equal(760, launcher.Width);
+        Assert.Equal("top", launcher.SearchPosition);
+        Assert.True(launcher.SearchOnTop);
+        Assert.False(new PanelSection().LauncherIsAttached);
+    }
+
+    [Fact]
+    public void TheLauncherSectionRoundTrips()
+    {
+        var config = AppConfig.Default();
+        config.Launcher.Width = 900;
+        config.Launcher.SearchPosition = "bottom";
+        config.Panels.LauncherPlacement = "attached";
+        config.Panels.LauncherPosition = "auto";
+        config.Panels.OpenNearClickLauncher = true;
+
+        var (reloaded, diagnostics) = ConfigToml.Load(ConfigToml.Save(config));
+
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
+        Assert.Equal(900, reloaded.Launcher.Width);
+        Assert.False(reloaded.Launcher.SearchOnTop);
+        Assert.True(reloaded.Panels.LauncherIsAttached);
+        Assert.Equal("auto", reloaded.Panels.LauncherPosition);
+        Assert.True(reloaded.Panels.OpenNearClickLauncher);
+    }
+
+    [Fact]
+    public void ALauncherWidthOutsideTheRangeIsClampedNotDropped()
+    {
+        // Upstream keeps a too-wide or too-narrow launcher at the nearest legal size rather
+        // than reverting it, so a hand-edited config still renders.
+        var (config, diagnostics) = ConfigToml.Load("""
+            [shell.launcher]
+            width = 4000
+            search_position = "middle"
+            """);
+
+        Assert.Equal(LauncherSection.MaxWidth, config.Launcher.Width);
+        Assert.Equal("top", config.Launcher.SearchPosition);
+        Assert.Contains(diagnostics, d => d.Path == "shell.launcher.width");
+        Assert.Contains(diagnostics, d => d.Path == "shell.launcher.search_position");
+    }
+
+    [Fact]
     public void ControlCenterIsOnlyAttachedWhenTheConfigSaysSo()
     {
         Assert.True(new PanelSection().ControlCenterIsAttached);
@@ -136,12 +184,15 @@ public sealed class PanelConfigTests
         var config = AppConfig.Default();
         config.Panels.FloatingOffset = 30;
         config.ControlCenter.Width = 480;
+        config.Launcher.Width = 640;
 
         var clone = config.Clone();
         clone.Panels.FloatingOffset = 1;
         clone.ControlCenter.Width = 1;
+        clone.Launcher.Width = 1;
 
         Assert.Equal(30, config.Panels.FloatingOffset);
         Assert.Equal(480, config.ControlCenter.Width);
+        Assert.Equal(640, config.Launcher.Width);
     }
 }

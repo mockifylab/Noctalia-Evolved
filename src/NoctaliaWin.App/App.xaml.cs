@@ -28,6 +28,12 @@ public partial class App : Application
     private readonly List<BarState> _bars = [];
     private BarViewModel? _model;
     private PanelHost? _panels;
+
+    // Built on first use: scanning the Start Menu costs a directory walk, and a session that
+    // never opens the launcher should not pay for it at startup.
+    private ApplicationDiscoveryService? _apps;
+    private LauncherModel? _launcher;
+
     private DispatcherTimer? _pointerPoll;
     private DispatcherTimer? _slide;
     private bool _rebuildQueued;
@@ -40,13 +46,25 @@ public partial class App : Application
         _tray.ExitRequested += Quit;
         _tray.SetTooltip("Noctalia for Windows");
 
-        // Left-clicking the tray icon has nothing to reopen until the launcher and settings
-        // windows exist, so IconActivated is deliberately unwired rather than half-wired.
+        // The tray is the launcher's other door: it opens the same panel the bar's Search
+        // button does, against the primary bar's monitor.
+        _tray.IconActivated += () => _panels?.ToggleLauncher(CurrentTheme());
+
         _settings.Changed += _ => RebuildLater();
         _systemTheme.Changed += RebuildLater;
 
         BuildBars();
         StartPointerPolling();
+    }
+
+    /// The launcher's model, built the first time a launcher panel is actually asked for and
+    /// kept across config rebuilds, because rescanning the installed applications on every
+    /// settings change would throw away results the user is typing against.
+    private LauncherModel RequireLauncher()
+    {
+        _apps ??= new ApplicationDiscoveryService();
+        return _launcher ??= new LauncherModel(
+            _apps, new ProcessLauncher(), action => Dispatcher.BeginInvoke(action));
     }
 
     private ThemeBrushes CurrentTheme()
@@ -79,7 +97,12 @@ public partial class App : Application
             _settings,
             action => Dispatcher.BeginInvoke(action));
 
-        _panels = new PanelHost(_settings, _model, () => [.. _bars.Select(b => b.Current)]);
+        _panels = new PanelHost(
+            _settings,
+            _model,
+            () => [.. _bars.Select(b => b.Current)],
+            () => _bars.Count > 0 ? _bars[0].Window : null,
+            RequireLauncher);
         _panels.Changed += RaiseBars;
 
         foreach (var monitor in _placement.Monitors)
@@ -257,6 +280,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _launcher?.Dispose();
         _status.Dispose();
         _audio.Dispose();
         _systemTheme.Dispose();

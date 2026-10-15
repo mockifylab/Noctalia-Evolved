@@ -230,7 +230,7 @@ public sealed class PanelLayoutTests
     public void FloatingCardIsAPlainRoundedRectWithNoFlare()
     {
         var panel = PanelLayout.ComputeFloating(
-            Monitor(), new PanelSection(), new ControlCenterSection(), "control-center", Bar());
+            Monitor(), new PanelSection(), new ControlCenterSection(), new LauncherSection(), "control-center", Bar());
 
         Assert.False(panel.Attached);
         Assert.Equal(CornerShapes.AllConvex, panel.Geometry.Corners);
@@ -248,7 +248,7 @@ public sealed class PanelLayoutTests
         var monitor = Monitor();
         var panels = new PanelSection { ControlCenterPosition = "center" };
         var panel = PanelLayout.ComputeFloating(
-            monitor, panels, new ControlCenterSection(), "control-center", Bar());
+            monitor, panels, new ControlCenterSection(), new LauncherSection(), "control-center", Bar());
 
         Assert.Equal(monitor.WorkLeft + (monitor.WorkWidth - panel.Visual.Width) / 2, panel.Visual.X);
         Assert.Equal(monitor.WorkTop + (monitor.WorkHeight - panel.Visual.Height) / 2, panel.Visual.Y);
@@ -259,13 +259,13 @@ public sealed class PanelLayoutTests
     {
         var bar = Bar();
         var panel = PanelLayout.ComputeFloating(
-            Monitor(), new PanelSection(), new ControlCenterSection(), "control-center", bar);
+            Monitor(), new PanelSection(), new ControlCenterSection(), new LauncherSection(), "control-center", bar);
 
         Assert.Equal(bar.Surface.Bottom + new PanelSection().FloatingOffset, panel.Visual.Y);
 
         var bottomBar = Bar("bottom");
         var above = PanelLayout.ComputeFloating(
-            Monitor(), new PanelSection(), new ControlCenterSection(), "control-center", bottomBar);
+            Monitor(), new PanelSection(), new ControlCenterSection(), new LauncherSection(), "control-center", bottomBar);
         Assert.Equal(above.Visual.Bottom + new PanelSection().FloatingOffset, bottomBar.Surface.Y);
     }
 
@@ -278,7 +278,7 @@ public sealed class PanelLayoutTests
             "tiny", 0, 0, 800, 600, 0, 0, 800, 560, 1.0, 1.0, IsPrimary: true);
         var bar = BarLayout.Compute(cramped, new BarSection { Position = "left", MarginEdge = 10 });
         var panel = PanelLayout.ComputeFloating(
-            cramped, new PanelSection(), new ControlCenterSection { Width = 1400 }, "control-center", bar);
+            cramped, new PanelSection(), new ControlCenterSection { Width = 1400 }, new LauncherSection(), "control-center", bar);
 
         Assert.Equal(cramped.WorkLeft, panel.Visual.X);
         Assert.True(panel.Visual.Y >= cramped.WorkTop);
@@ -289,10 +289,67 @@ public sealed class PanelLayoutTests
     public void FloatingCalendarUsesTheCalendarSizeNotTheControlCenterSize()
     {
         var panel = PanelLayout.ComputeFloating(
-            Monitor(), new PanelSection(), new ControlCenterSection(), "calendar", Bar());
+            Monitor(), new PanelSection(), new ControlCenterSection(), new LauncherSection(), "calendar", Bar());
 
         Assert.Equal((int)PanelLayout.CalendarLogicalWidth, panel.Visual.Width);
         Assert.Equal((int)PanelLayout.CalendarLogicalHeight, panel.Visual.Height);
         Assert.Equal("calendar", panel.PanelId);
+    }
+
+    [Fact]
+    public void FloatingLauncherUsesTheLauncherWidthAndRowCount()
+    {
+        var panel = PanelLayout.ComputeFloating(
+            Monitor(), new PanelSection(), new ControlCenterSection(),
+            new LauncherSection { Width = 600 }, "launcher", Bar());
+
+        Assert.Equal(600, panel.Visual.Width);
+        Assert.Equal((int)PanelLayout.LauncherLogicalHeight, panel.Visual.Height);
+        Assert.Equal("launcher", panel.PanelId);
+    }
+
+    [Fact]
+    public void LauncherPlacementFollowsLauncherKeysNotControlCenterKeys()
+    {
+        // The two panels have independent position keys, so the control center's setting
+        // must not move the launcher.
+        var monitor = Monitor();
+        var bar = Bar();
+        var panels = new PanelSection
+        {
+            ControlCenterPosition = "center",
+            LauncherPosition = "auto",
+        };
+
+        var launcher = PanelLayout.ComputeFloating(
+            monitor, panels, new ControlCenterSection(), new LauncherSection(), "launcher", bar);
+        var controlCenter = PanelLayout.ComputeFloating(
+            monitor, panels, new ControlCenterSection(), new LauncherSection(), "control-center", bar);
+
+        Assert.Equal(bar.Surface.Bottom + panels.FloatingOffset, launcher.Visual.Y);
+        Assert.NotEqual(launcher.Visual.Y, controlCenter.Visual.Y);
+    }
+
+    [Fact]
+    public void LauncherLogicalHeightIsExactlyTheRowsItDraws()
+    {
+        // The window is placed before it is measured, so the panel's own content has to add up
+        // to this number: padding, search row, two gaps, eight result rows, status row.
+        Assert.Equal(8, LauncherModel.VisibleRows);
+        Assert.Equal(394, PanelLayout.LauncherLogicalHeight, 0);
+    }
+
+    [Fact]
+    public void LogicalSizeCoversEveryPanelId()
+    {
+        var controlCenter = new ControlCenterSection();
+        var launcher = new LauncherSection();
+
+        Assert.Equal(PanelLayout.ControlCenterLogicalWidth(controlCenter),
+            PanelLayout.LogicalSize("control-center", controlCenter, launcher).Width);
+        Assert.Equal((double)PanelLayout.CalendarLogicalWidth,
+            PanelLayout.LogicalSize("calendar", controlCenter, launcher).Width);
+        Assert.Equal((double)launcher.Width,
+            PanelLayout.LogicalSize("launcher", controlCenter, launcher).Width);
     }
 }

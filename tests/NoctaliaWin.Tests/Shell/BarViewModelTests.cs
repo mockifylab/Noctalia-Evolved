@@ -163,8 +163,20 @@ public sealed class BarViewModelTests
     }
 
     [Theory]
-    [InlineData("launcher")]
-    [InlineData("control-center")]
+    [InlineData("launcher", "Search")]
+    [InlineData("control-center", "Quick settings")]
+    public void BarButtonsCarryAWordInsteadOfAnIcon(string widget, string label)
+    {
+        // Upstream draws these as icon-font glyphs, which this port does not ship, so the
+        // button has to say what it opens.
+        var model = Create(new FakeAudio());
+
+        Assert.True(model.IsRendered(widget));
+        Assert.Equal(label, model.Text(widget));
+        Assert.NotNull(model.Tooltip(widget));
+    }
+
+    [Theory]
     [InlineData("session")]
     [InlineData("settings")]
     [InlineData("media")]

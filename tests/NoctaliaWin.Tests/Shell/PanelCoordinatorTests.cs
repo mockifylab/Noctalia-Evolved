@@ -54,6 +54,28 @@ public sealed class PanelCoordinatorTests
     }
 
     [Fact]
+    public void TheLauncherReplacesTheControlCenterAndViceVersa()
+    {
+        // One surface, three ids: the launcher is a panel, so opening it from the bar must
+        // dismiss an open control centre instead of stacking a second window on it.
+        var panels = new PanelCoordinator();
+        panels.Toggle(ControlCenter(), Bar);
+        panels.FinishOpen();
+
+        Assert.True(panels.Toggle(ControlCenter("launcher"), Bar));
+        Assert.Equal("launcher", panels.ActiveId);
+        panels.FinishOpen();
+
+        // Toggle is click semantics, so clicking the launcher button again closes it.
+        Assert.False(panels.Toggle(ControlCenter("launcher"), Bar));
+        Assert.Equal(PanelPhase.Closed, panels.Phase);
+
+        Assert.True(panels.Toggle(ControlCenter("launcher"), Bar));
+        Assert.True(panels.Toggle(ControlCenter(), Bar));
+        Assert.Equal("control-center", panels.ActiveId);
+    }
+
+    [Fact]
     public void ClosingRevealsNothingUntilTheAnimatorFinishes()
     {
         var panels = new PanelCoordinator();
@@ -158,10 +180,16 @@ public sealed class PanelCoordinatorTests
         Assert.Equal("control-center", PanelCoordinator.PanelFor("network"));
         Assert.Equal("control-center", PanelCoordinator.PanelFor("battery"));
         Assert.Equal("control-center", PanelCoordinator.PanelFor("control-center"));
+        Assert.Equal("launcher", PanelCoordinator.PanelFor("launcher"));
 
         Assert.True(PanelCoordinator.OpensPanel("clock"));
         Assert.False(PanelCoordinator.OpensPanel("spacer"));
-        Assert.False(PanelCoordinator.OpensPanel("launcher"));
+
+        // The launcher is a panel: it grows out of the bar, takes focus and closes on Escape.
+        Assert.True(PanelCoordinator.OpensPanel("launcher"));
+
+        // Settings is its own window, so the bar button must not steal the panel surface.
+        Assert.False(PanelCoordinator.OpensPanel("settings"));
     }
 
     [Fact]

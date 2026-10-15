@@ -27,6 +27,7 @@ internal sealed class PanelWindow : Window
     private readonly MonitorInfo _monitor;
     private readonly PanelPlacement _placement;
     private readonly ThemeBrushes _theme;
+    private readonly PanelContent.Surface _content;
     private readonly Canvas _surface = new();
     private readonly TranslateTransform _reveal = new();
     private readonly DispatcherTimer _ticker;
@@ -53,6 +54,7 @@ internal sealed class PanelWindow : Window
         _monitor = monitor;
         _placement = placement;
         _theme = theme;
+        _content = content;
 
         Title = "Noctalia panel";
         WindowStyle = WindowStyle.None;
@@ -139,7 +141,12 @@ internal sealed class PanelWindow : Window
             }
         };
 
-        Deactivated += (_, _) => DismissRequested?.Invoke();
+        // Only an open window can be dismissed by losing focus: before the first Show the
+        // window has nothing to lose, and dismissing then would destroy the panel mid-reveal.
+        Deactivated += (_, _) =>
+        {
+            if (IsOpen) DismissRequested?.Invoke();
+        };
 
         SourceInitialized += (_, _) => Place(surface);
     }
@@ -169,6 +176,10 @@ internal sealed class PanelWindow : Window
         _clock.Restart();
         _ticker.Start();
         Activate();
+
+        // A panel that takes focus has to hand it to something: the launcher's search field
+        // asks for it, and typing works on the first frame instead of the second click.
+        _content.Focus?.Invoke();
     }
 
     /// Slide back. The window hides itself when it is done, so an interrupted animation

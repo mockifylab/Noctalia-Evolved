@@ -148,6 +148,9 @@ public sealed class PanelSection
 
     public bool ControlCenterIsAttached => ControlCenterPlacement != "floating";
 
+    /// Upstream defaults the launcher to a floating card rather than a bar-attached panel.
+    public bool LauncherIsAttached => LauncherPlacement == "attached";
+
     public PanelSection Clone() => new()
     {
         TransparencyMode = TransparencyMode,
@@ -182,6 +185,28 @@ public sealed class ControlCenterSection
     public ControlCenterSection Clone() => new() { Width = Width };
 }
 
+/// The `[shell.launcher]` keys this build honours: its width and where the search row sits.
+/// Upstream's launcher also has views (recent/pinned/categories), result providers, icons and
+/// usage-based sorting, none of which a Windows launcher can render from this repository's
+/// data yet, so those keys are left out rather than accepted and ignored.
+public sealed class LauncherSection
+{
+    public const int DefaultWidth = 760;
+    public const int MinWidth = 560;
+    public const int MaxWidth = 1200;
+
+    public int Width { get; set; } = DefaultWidth;
+    public string SearchPosition { get; set; } = "top"; // top | bottom
+
+    public bool SearchOnTop => SearchPosition != "bottom";
+
+    public LauncherSection Clone() => new()
+    {
+        Width = Width,
+        SearchPosition = SearchPosition,
+    };
+}
+
 public sealed class ShellSection
 {
     // Raw strftime-ish formats kept for config parity; the UI layer converts them.
@@ -207,6 +232,7 @@ public sealed class AppConfig
     public ShellSection Shell { get; set; } = new();
     public PanelSection Panels { get; set; } = new();
     public ControlCenterSection ControlCenter { get; set; } = new();
+    public LauncherSection Launcher { get; set; } = new();
 
     /// Bars keyed by name; "main" always exists.
     public Dictionary<string, BarSection> Bars { get; set; } = new() { ["main"] = new BarSection() };
@@ -221,6 +247,7 @@ public sealed class AppConfig
         Shell = Shell.Clone(),
         Panels = Panels.Clone(),
         ControlCenter = ControlCenter.Clone(),
+        Launcher = Launcher.Clone(),
         Bars = Bars.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()),
     };
 

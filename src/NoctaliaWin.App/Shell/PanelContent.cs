@@ -1,13 +1,16 @@
-// What goes inside a pop-out panel. Two surfaces exist in this build, and both are made of
-// data the platform services actually report: the calendar panel shows the real month and
-// the clock's configured date format, and the control-center panel reads and writes the real
-// master volume and reports the real network and battery state.
+// What goes inside a pop-out panel. Three surfaces exist in this build, and each is made of
+// data the platform services actually report: the calendar panel shows the real month and the
+// clock's configured date format, the control-center panel reads and writes the real master
+// volume and reports the real network and battery state, and the launcher lists and searches
+// the applications Windows actually has installed.
 //
-// Every value here is a text label or a slider, never an icon glyph: Noctalia's icon font is
-// not part of this repository's licence grant.
+// Every value here is a text label, a slider or an edit box, never an icon glyph: Noctalia's
+// icon font is not part of this repository's licence grant.
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using NoctaliaWin.App.Design;
 using NoctaliaWin.Core.Abstractions;
@@ -20,30 +23,27 @@ internal static class PanelContent
 {
     private static readonly FontFamily UiFont = new("Segoe UI Variable Text, Segoe UI");
 
-    /// The element tree plus the unsubscribe for its repaint subscription. The host detaches
-    /// when the window closes, so a panel opened a hundred times does not accumulate a
-    /// hundred listeners on the content model.
-    public sealed record Surface(FrameworkElement Element, Action Detach);
+    /// The element tree plus the unsubscribe for its repaint subscription, and the focus
+    /// request the window makes once it is active. The host detaches when the window closes,
+    /// so a panel opened a hundred times does not accumulate a hundred listeners.
+    public sealed record Surface(FrameworkElement Element, Action Detach, Action? Focus = null);
 
-    /// Build the surface for a panel id. Unknown ids return null so the caller can refuse to
-    /// open a panel it cannot fill, rather than showing an empty card.
+    /// Build the surface for a control-center or calendar panel id. Unknown ids return null so
+    /// the caller can refuse to open a panel it cannot fill, rather than showing an empty card.
+    ///
+    /// `zoom` is the logical-pixel-to-DIP factor for this monitor and bar, and `font` adds the
+    /// bar's font scale, so a bar-less panel is built from the monitor scale alone.
     public static Surface? Build(
         string panelId,
         PanelContentModel model,
         ThemeBrushes theme,
-        BarPlacement bar,
-        MonitorInfo monitor)
+        double zoom,
+        double font) => panelId switch
     {
-        double zoom = BarSurface.Zoom(bar, monitor);
-        double font = bar.FontScale * zoom;
-
-        return panelId switch
-        {
-            PanelCoordinator.CalendarPanel => Calendar(model, theme, zoom, font),
-            PanelCoordinator.ControlCenterPanel => ControlCenter(model, theme, zoom, font, bar),
-            _ => null,
-        };
-    }
+        PanelCoordinator.CalendarPanel => Calendar(model, theme, zoom, font),
+        PanelCoordinator.ControlCenterPanel => ControlCenter(model, theme, zoom, font),
+        _ => null,
+    };
 
     private static Surface Calendar(PanelContentModel model, ThemeBrushes theme, double zoom, double font)
     {
@@ -119,7 +119,7 @@ internal static class PanelContent
     }
 
     private static Surface ControlCenter(
-        PanelContentModel model, ThemeBrushes theme, double zoom, double font, BarPlacement bar)
+        PanelContentModel model, ThemeBrushes theme, double zoom, double font)
     {
         var root = Stack(zoom, out var padding);
         var audio = model.Bar;
@@ -171,6 +171,259 @@ internal static class PanelContent
 
         Repaint();
         return new Surface(Wrap(root, padding), () => model.Changed -= Repaint);
+    }
+
+    /// The launcher: a search field, the rows it matches and a status line.
+    ///
+    /// Ranking, paging, wrapping and what Enter does all live in LauncherModel, which is
+    /// tested without a display; this draws that model's state and forwards keys to it.
+    public static Surface Launcher(
+        LauncherModel model,
+        ThemeBrushes theme,
+        double zoom,
+        double font,
+        bool searchOnTop,
+        Action dismiss)
+    {
+        var root = Stack(zoom, out var padding);
+
+        var search = new TextBox
+        {
+            FontFamily = UiFont,
+            FontWeight = FontWeights.Medium,
+            FontSize = StyleTokens.FontSizeBody * font,
+            Foreground = theme[ColorRole.OnSurface],
+            CaretBrush = theme[ColorRole.OnSurface],
+            // The card behind the field is drawn by its container, so the field itself stays
+            // transparent rather than stacking a second panel-coloured box on it.
+            Background = Brushes.Transparent,
+            Template = FlatSearchTemplate(theme, zoom),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            ToolTip = "Type to search installed applications",
+            Text = model.Query,
+        };
+
+        var list = new StackPanel { Orientation = Orientation.Vertical };
+        var status = Label(string.Empty, theme, StyleTokens.FontSizeMini, font, centered: false);
+        status.TextWrapping = TextWrapping.Wrap;
+        status.Opacity = 0.75;
+        status.Margin = Space(0, StyleTokens.SpaceSm * zoom, 0, 0);
+
+        // A launch failure is shown rather than swallowed, and goes away as soon as the
+        // query moves again.
+        string? failure = null;
+        search.TextChanged += (_, _) =>
+        {
+            failure = null;
+            model.Query = search.Text;
+        };
+
+        search.PreviewKeyDown += (_, e) =>
+        {
+            // Tab is consumed here because WPF would otherwise treat it as focus traversal
+            // and move the caret out of a panel that has nothing else to focus.
+            switch (e.Key)
+            {
+                case Key.Down:
+                    model.Move(1);
+                    e.Handled = true;
+                    break;
+                case Key.Up:
+                    model.Move(-1);
+                    e.Handled = true;
+                    break;
+                case Key.Tab:
+                    model.Move(e.KeyboardDevice.Modifiers == ModifierKeys.Shift ? -1 : 1);
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    e.Handled = true;
+                    if (model.Activate() is { } error)
+                    {
+                        failure = error;
+                        Repaint();
+                    }
+                    else
+                    {
+                        dismiss();
+                    }
+                    break;
+            }
+        };
+
+        void Repaint()
+        {
+            list.Children.Clear();
+            var page = model.Page();
+            int selected = model.SelectedOnPage;
+
+            for (int i = 0; i < page.Count; i++)
+            {
+                int row = i;
+                var entry = page[i];
+                bool isSelected = row == selected;
+
+                var name = new TextBlock
+                {
+                    FontFamily = UiFont,
+                    FontWeight = FontWeights.Medium,
+                    FontSize = StyleTokens.FontSizeCaption * font,
+                    Foreground = theme[ColorRole.OnSurface],
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                AppendMatch(name, entry.Entry.Name, entry.NamePositions, theme[ColorRole.Primary]);
+
+                var path = new TextBlock
+                {
+                    FontFamily = UiFont,
+                    FontSize = StyleTokens.FontSizeMini * font,
+                    Foreground = theme[ColorRole.OnSurfaceVariant],
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextAlignment = TextAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = Space(StyleTokens.SpaceMd * zoom, 0, 0, 0),
+                    MaxWidth = 220 * zoom,
+                };
+                path.Text = entry.Entry.Exec;
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                Grid.SetColumn(name, 0);
+                Grid.SetColumn(path, 1);
+                grid.Children.Add(name);
+                grid.Children.Add(path);
+
+                var capsule = new Border
+                {
+                    Child = grid,
+                    Background = isSelected ? theme[ColorRole.SurfaceVariant] : Brushes.Transparent,
+                    CornerRadius = new CornerRadius(StyleTokens.RadiusSm * zoom),
+                    Padding = new Thickness(StyleTokens.SpaceMd * zoom * 0.5, 0, StyleTokens.SpaceMd * zoom * 0.5, 0),
+                    Height = PanelLayout.LauncherResultRowHeight * zoom,
+                    Cursor = Cursors.Hand,
+                    // The rows are a pointer over the list, not stops on the tab ring: the
+                    // search field keeps the keyboard so typing is never one click away.
+                    Focusable = false,
+                };
+                capsule.MouseEnter += (_, _) => capsule.Background = theme.Hover;
+                capsule.MouseLeave += (_, _) =>
+                    capsule.Background = row == model.SelectedOnPage
+                        ? theme[ColorRole.SurfaceVariant]
+                        : Brushes.Transparent;
+                capsule.MouseLeftButtonUp += (_, e) =>
+                {
+                    if (e.ClickCount == 2)
+                    {
+                        model.SelectOnPage(row);
+                        if (model.Activate() is { } error) failure = error;
+                        else dismiss();
+                    }
+                    else
+                    {
+                        model.SelectOnPage(row);
+                    }
+
+                    search.Focus();
+                    Repaint();
+                };
+
+                list.Children.Add(capsule);
+            }
+
+            status.Text = failure is { } error
+                ? error
+                : model.NoMatches
+                    ? $"No match for \"{model.Query}\""
+                    : model.Query.Length == 0
+                        ? $"{model.Count} applications - start typing to filter"
+                        : $"{model.Count} match{(model.Count == 1 ? "" : "es")} - Enter opens, Esc closes";
+        }
+
+        var searchCard = new Border
+        {
+            Height = PanelLayout.LauncherSearchRowHeight * zoom,
+            Background = theme.PanelCard,
+            CornerRadius = new CornerRadius(StyleTokens.RadiusMd * zoom),
+            Padding = new Thickness(StyleTokens.SpaceMd * zoom * 0.6, 0, StyleTokens.SpaceMd * zoom * 0.6, 0),
+            Margin = searchOnTop
+                ? Space(0, 0, 0, StyleTokens.SpaceSm * zoom)
+                : Space(0, StyleTokens.SpaceSm * zoom, 0, 0),
+        };
+
+        // WPF's TextBox has no placeholder, and an empty field in a launcher nobody has typed
+        // in yet reads as a broken window rather than an invitation.
+        var hint = new TextBlock
+        {
+            Text = "Search applications",
+            FontFamily = UiFont,
+            FontWeight = FontWeights.Medium,
+            FontSize = StyleTokens.FontSizeBody * font,
+            Foreground = theme[ColorRole.OnSurfaceVariant],
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+        };
+        var field = new Grid();
+        field.Children.Add(search);
+        field.Children.Add(hint);
+        searchCard.Child = field;
+
+        void SyncHint() => hint.Visibility = search.Text.Length == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        search.TextChanged += (_, _) => SyncHint();
+        SyncHint();
+
+        model.Changed += Repaint;
+        if (searchOnTop)
+        {
+            root.Children.Add(searchCard);
+            root.Children.Add(list);
+        }
+        else
+        {
+            root.Children.Add(list);
+            root.Children.Add(searchCard);
+        }
+        root.Children.Add(status);
+        Repaint();
+
+        return new Surface(
+            Wrap(root, padding),
+            () => model.Changed -= Repaint,
+            () =>
+            {
+                search.Focus();
+                search.SelectAll();
+            });
+    }
+
+    /// The matched characters in bold and in the accent colour, the rest in the surface
+    /// colour. This is what makes a fuzzy match legible instead of mysterious.
+    private static void AppendMatch(TextBlock target, string text, int[] positions, Brush matched)
+    {
+        var hits = positions.Where(p => p >= 0 && p < text.Length).OrderBy(p => p).ToHashSet();
+
+        // Emit maximal runs of matched / unmatched characters so the emphasis is per span,
+        // not per character.
+        target.Inlines.Clear();
+        int start = 0;
+        while (start < text.Length)
+        {
+            bool hit = hits.Contains(start);
+            int end = start;
+            while (end < text.Length && hits.Contains(end) == hit) end++;
+
+            var piece = new Run(text[start..end]);
+            if (hit)
+            {
+                piece.FontWeight = FontWeights.Bold;
+                piece.Foreground = matched;
+            }
+            target.Inlines.Add(piece);
+            start = end;
+        }
     }
 
     // ── small builders ───────────────────────────────────────────────────────
@@ -262,6 +515,26 @@ internal static class PanelContent
         var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
         template.Triggers.Add(hover);
         return template;
+    }
+
+    /// The search field's chrome. WPF's default TextBox template brings a Windows-forms-era
+    /// white box with a focus glow that no palette can tint, so the whole template is a
+    /// rounded card of the panel's own card colour with the text host inside it.
+    private static ControlTemplate FlatSearchTemplate(ThemeBrushes theme, double zoom)
+    {
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(StyleTokens.RadiusMd * zoom));
+        border.SetValue(Border.PaddingProperty, new Thickness(StyleTokens.SpaceSm * zoom, 0, StyleTokens.SpaceSm * zoom, 0));
+
+        // TextBox finds its editor by this exact name, so it goes through the factory
+        // constructor: that is what registers it in the template's namescope.
+        var host = new FrameworkElementFactory(typeof(ScrollViewer), "PART_ContentHost");
+        host.SetValue(FrameworkElement.FocusableProperty, false);
+        host.SetValue(ScrollViewer.VerticalScrollBarVisibilityProperty, ScrollBarVisibility.Hidden);
+        border.AppendChild(host);
+
+        return new ControlTemplate(typeof(TextBox)) { VisualTree = border };
     }
 
     private static Thickness Space(double l, double t, double r, double b) => new(l, t, r, b);

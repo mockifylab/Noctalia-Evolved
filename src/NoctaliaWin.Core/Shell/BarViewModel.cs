@@ -15,6 +15,23 @@ public sealed class BarViewModel : IDisposable
     private static readonly IReadOnlySet<string> Rendered =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "clock", "network", "volume", "battery", "spacer" };
 
+    /// Widgets that are a button rather than a readout: nothing about the machine decides
+    /// their text, because their job is to open a surface. Upstream draws these as icon-font
+    /// glyphs, which this port cannot ship, so each gets a word instead.
+    private static readonly IReadOnlyDictionary<string, string> ButtonLabels =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["launcher"] = "Search",
+            ["control-center"] = "Quick settings",
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> ButtonTooltips =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["launcher"] = "Search installed applications",
+            ["control-center"] = "Open quick settings",
+        };
+
     private readonly ISystemStatusService _status;
     private readonly IAudioService _audio;
     private readonly ISettingsStore _settings;
@@ -43,7 +60,8 @@ public sealed class BarViewModel : IDisposable
 
     /// A supported widget this milestone can actually draw, for this machine, right now.
     public bool IsRendered(string widget) =>
-        Rendered.Contains(widget) && (widget.Equals("battery", StringComparison.OrdinalIgnoreCase) == false || HasBattery);
+        (Rendered.Contains(widget) || ButtonLabels.ContainsKey(widget))
+        && (widget.Equals("battery", StringComparison.OrdinalIgnoreCase) == false || HasBattery);
 
     public bool HasBattery => _status.Snapshot.Battery != BatteryStatus.NoBattery;
 
@@ -55,7 +73,7 @@ public sealed class BarViewModel : IDisposable
         "volume" => VolumeText,
         "battery" => HasBattery ? BatteryText : null,
         "spacer" => null,
-        _ => null,
+        _ => ButtonLabels.TryGetValue(widget, out var button) ? button : null,
     };
 
     public string? Tooltip(string widget) => widget.ToLowerInvariant() switch
@@ -68,7 +86,7 @@ public sealed class BarViewModel : IDisposable
             ? "Muted - the panel has the unmute control, scroll to change level"
             : "Click for quick settings, scroll to change level",
         "battery" => BatteryTooltip,
-        _ => null,
+        _ => ButtonTooltips.TryGetValue(widget, out var tip) ? tip : null,
     };
 
     public bool IsMuted => _audio.Muted;

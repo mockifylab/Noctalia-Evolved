@@ -8,12 +8,13 @@ This is **not** a Linux desktop environment on Windows, and **not** a re-skin of
 shell. It reuses Noctalia's geometry, design tokens and config contract where the license
 permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 
-> **Status: the bar and its pop-out panels run; the launcher and settings windows do not
-> yet.** `dotnet run --project src/NoctaliaWin.App` shows a Noctalia bar on every monitor —
-> concave silhouette, clock, network, volume, battery, auto-hide, tray presence — and clicking
-> a widget opens the concave panel behind it: a real month calendar under the clock, and a
-> quick-settings panel that reads and writes the actual master volume. 345 tests pass. The
-> launcher window and the settings window are the next milestones. See
+> **Status: the bar, its pop-out panels and the launcher run.** `dotnet run --project
+> src/NoctaliaWin.App` shows a Noctalia bar on every monitor — concave silhouette, Search and
+> Quick settings buttons, clock, network, volume, battery, auto-hide, tray presence — and
+> clicking a widget opens the concave panel behind it: a real month calendar under the clock, a
+> quick-settings panel that reads and writes the actual master volume, and a launcher that
+> lists the installed applications, filters them as you type and starts the selected one with
+> Enter. 370 tests pass. The settings window is the next milestone. See
 > [Current state](#current-state).
 
 ## Current state
@@ -22,26 +23,27 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 |---|---|
 | Concave bar geometry, design tokens, palettes | Done, ported from Noctalia and unit-tested |
 | Config (`config.toml`) load/save/validate/migrate | Done, unit-tested |
-| fzy fuzzy search + launcher ranking | Done, unit-tested (no window yet) |
+| fzy fuzzy search + launcher ranking | Done, unit-tested |
 | Monitors, DPI, power, network, audio, startup, tray | Done against documented Win32/COM APIs |
 | Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
 | Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement |
-| Launcher window | Not built (service layer is ready) |
+| Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
 | Settings window | Not built (store is ready; edit `config.toml` by hand) |
 
 Widgets that have no Windows backing yet are **skipped and reported**, never drawn as empty
 tiles: `media`, `clipboard`, `bluetooth`, `brightness`, `wallpaper`, `workspaces`, `text`,
 `tray` and `notifications`. The last two are on that list because reading another process's
-status-bar icons or toast content has no supported API. `launcher`, `settings`,
-`control-center` and `session` are named as supported in the catalog but are not drawn as bar
-buttons yet; the panels they belong to are reached by clicking `clock`, `volume`, `network`
-and `battery`.
+status-bar icons or toast content has no supported API. `launcher` and `control-center` are
+drawn as bar buttons with a word instead of Noctalia's icon-font glyph; `settings` and
+`session` are named in the catalog but have no button yet.
 
 What the panels knowingly do not do: `transparency_mode = "glass"` sets the card's opacity but
 cannot blur what is behind it, because WPF exposes no documented backdrop blur for a layered
-window; `shadow` is inert for panels as it is for the bar; and the control center's height is
+window; `shadow` is inert for panels as it is for the bar; the control center's height is
 the height its rows actually occupy rather than a measure of live content, so a panel with
-more rows later will need the same constant revisited.
+more rows later will need the same constant revisited; and the launcher lists names and paths
+as text, because `show_icons` would mean loading shell icon handlers that this build does not
+call yet.
 
 Two bar options are knowingly inert: `shadow` (a drop shadow needs a bleed margin the
 placement math does not reserve yet) and `reserve_space` (shrinking the real work area means
@@ -85,8 +87,9 @@ dotnet run --project src/NoctaliaWin.App
 ```
 
 A bar appears on every monitor inside the work area (below the Windows taskbar), with a tray
-icon whose menu has **Exit Noctalia**. `tools/capture-screen.ps1` and `tools/crop-screen.ps1`
-exist for checking the result by eye:
+icon whose menu has **Exit Noctalia** and whose left click opens the launcher.
+`tools/capture-screen.ps1`, `tools/crop-screen.ps1` and `tools/click-screen.ps1` exist for
+checking the result by eye:
 
 ```powershell
 powershell -File tools/crop-screen.ps1 -X 1560 -Y 28 -Width 360 -Height 50 -Scale 3
@@ -110,10 +113,16 @@ defaults while preserving your file for inspection.
 The panel keys are the upstream ones: `[shell.panel]` (`transparency_mode`, `borders`,
 `border_width`, `shadow`, `control_center_placement`, `control_center_position`,
 `open_near_click_control_center`, `launcher_placement`, `launcher_position`,
-`open_near_click_launcher`, `floating_offset`) and `[control_center] width`. A panel opens
-attached to the bar's corners by default; `control_center_placement = "floating"` gives a
-plain rounded card instead, and `control_center_position` chooses between centring it and
-hanging it off the edge the bar docked on.
+`open_near_click_launcher`, `floating_offset`), `[shell.launcher]` (`width`,
+`search_position`) and `[control_center] width`. A panel opens attached to the bar's corners
+by default; `launcher_placement = "floating"` (the upstream default) gives a plain rounded
+card instead, and `launcher_position` chooses between centring it and hanging it off the edge
+the bar docked on.
+
+Upstream's other launcher keys — `layout`, `default_view`, `show_icons`, `track_usage`,
+`sort_by_usage`, `pinned` and the result providers — are **not read**, because this build has
+nothing to render them with: there are no icons, no recent/pinned/categories views and no
+usage history yet. A key nothing draws is left out rather than accepted and ignored.
 
 There is no settings window yet, so edit the file by hand and restart the app (or save while
 it runs: the bar rebuilds on the next config change it observes).
@@ -124,7 +133,7 @@ it runs: the bar rebuilds on the next config change it observes).
 |---|---|
 | `src/NoctaliaWin.Core` | Platform-independent: design tokens, palettes, concave corner + panel geometry, config schema/codec, settings store, fzy search, launcher ranking, bar layout/auto-hide/view model, service interfaces |
 | `src/NoctaliaWin.Windows` | Windows implementations of those interfaces (P/Invoke, COM). Kept thin so nothing else depends on Win32 |
-| `src/NoctaliaWin.App` | WPF app: bar window, pop-out panel windows, theme brushes, composition root; launcher and settings land here |
+| `src/NoctaliaWin.App` | WPF app: bar window, pop-out panel windows (calendar, control center, launcher), theme brushes, composition root; the settings window lands here |
 | `tests/NoctaliaWin.Tests` | xUnit suite for the Core, Windows and shell layers |
 | `tools` | Screen-capture helpers used to check shell windows by eye |
 | `docs/IMPLEMENTATION-ASSESSMENT.md` | Upstream inspection, reuse plan, Linux→Windows replacement table, risks |
@@ -148,6 +157,11 @@ it runs: the bar rebuilds on the next config change it observes).
   config section into physical rectangles (device scale × bar scale × UI scale); the WPF
   window divides by that monitor's device scale to get DIPs, and positions itself with
   `SetWindowPos`. Mixed-DPI monitors therefore cannot round a bar out of place.
+- **The launcher is a panel, not a second window system.** Upstream's launcher and its
+  quick-settings surface share the same shell surface, and so do these: the same window class,
+  reveal, focus rules, one-open replacement and dismissal. The ranking, paging, wrapping and
+  Enter behaviour live in `LauncherModel` in Core, which is why they have tests; the WPF side
+  only draws that model and forwards keys.
 - **Widgets are text labels, deliberately.** Noctalia's bar uses an icon font that is not
   part of this repository's licence grant, so a widget says "Wi-Fi" where a copied glyph
   would be an unlicensed asset.
