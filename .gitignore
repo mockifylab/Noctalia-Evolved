@@ -1,6 +1,7 @@
 # Build output
 bin/
 obj/
+build/
 *.user
 .vs/
 
@@ -15,3 +16,6 @@ coverage/
 
 # Local scratch
 *.tmp
+
+# Installer bundles (tools/make-installer.ps1)
+/build/

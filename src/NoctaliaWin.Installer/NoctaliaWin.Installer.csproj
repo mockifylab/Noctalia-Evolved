@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\NoctaliaWin.Core\NoctaliaWin.Core.csproj" />
+    <ProjectReference Include="..\NoctaliaWin.Windows\NoctaliaWin.Windows.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>NoctaliaEvolved-Setup</AssemblyName>
+    <RootNamespace>NoctaliaWin.Installer</RootNamespace>
+    <!-- The window is built in code like the rest of this port, so there is no application
+         definition for the SDK to look for; Program.cs owns the entry point. -->
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <Product>Noctalia Evolved</Product>
+    <Description>Offline installer for Noctalia Evolved on Windows.</Description>
+  </PropertyGroup>
+
+</Project>

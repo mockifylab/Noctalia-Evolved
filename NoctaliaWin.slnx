@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/NoctaliaWin.App/NoctaliaWin.App.csproj" />
     <Project Path="src/NoctaliaWin.Core/NoctaliaWin.Core.csproj" />
+    <Project Path="src/NoctaliaWin.Installer/NoctaliaWin.Installer.csproj" />
     <Project Path="src/NoctaliaWin.Windows/NoctaliaWin.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
