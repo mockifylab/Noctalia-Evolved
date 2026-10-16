@@ -185,7 +185,8 @@ public sealed class SettingsField
             Id = id,
             Title = title,
             Description = description,
-            Control = SettingsControlKind.Slider,            Read = s => Format(get(s)),
+            Control = SettingsControlKind.Slider,
+            Read = s => Format(get(s)),
             Write = (s, v) =>
             {
                 if (!double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))

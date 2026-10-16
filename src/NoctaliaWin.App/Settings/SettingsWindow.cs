@@ -23,6 +23,8 @@ namespace NoctaliaWin.App.Settings;
 internal sealed class SettingsWindow : Window
 {
     private readonly SettingsEditor _editor;
+    private readonly UpdateService? _updates;
+    private bool _gone;
     private ThemeBrushes _theme;
     private double _zoom;
     private double _font;
@@ -39,12 +41,15 @@ internal sealed class SettingsWindow : Window
     private static readonly FontFamily UiFont = new("Segoe UI Variable Text, Segoe UI");
 
     public SettingsWindow(
-        SettingsEditor editor, ThemeBrushes theme, double zoom, double font, string? page = null)
+        SettingsEditor editor, ThemeBrushes theme, double zoom, double font,
+        string? page = null, UpdateService? updates = null)
     {
         _editor = editor;
+        _updates = updates;
         _theme = theme;
         _zoom = zoom;
         _font = font;
+        Closed += (_, _) => _gone = true;
         if (page is not null && SettingsCatalog.PageById(page) is { } requested) _pageId = requested.Id;
 
         Title = "Noctalia settings";
@@ -337,14 +342,57 @@ internal sealed class SettingsWindow : Window
         _banner.Visibility = Visibility.Visible;
     }
 
-    /// The two Button rows the catalog offers. Anything else answers honestly instead of doing
+    /// The Button rows the catalog offers. Anything else answers honestly instead of doing
     /// nothing quietly.
     private string? Run(string action) => action switch
     {
         SettingsCatalog.OpenConfigFolder => OpenConfigFolder(),
         SettingsCatalog.RestoreDefaults => RestoreDefaults(),
+        SettingsCatalog.CheckForUpdates => CheckForUpdates(),
+        SettingsCatalog.OpenLatestRelease => _updates?.OpenLatestRelease()
+            ?? "This build was started without an update source.",
         _ => $"Nothing is wired to “{action}”.",
     };
+
+    /// Starts the check and answers straight away, because the request belongs off the UI
+    /// thread. The outcome arrives later in the same banner, and the person decides what to do
+    /// with it — nothing here downloads or installs.
+    private string? CheckForUpdates()
+    {
+        if (_updates is not { } updates) return "This build was started without an update source.";
+
+        var version = _editor.Scope().AppVersion;
+        _ = CheckInBackground(updates, version);
+        return $"Asking GitHub for the newest release ({updates.Repository})…";
+    }
+
+    private async Task CheckInBackground(UpdateService updates, string? version)
+    {
+        string message;
+        try
+        {
+            message = (await updates.CheckAsync(version)).Message;
+        }
+        catch (Exception ex)
+        {
+            // The service swallows the network's own failures; anything reaching here is a bug,
+            // and the banner is the only place a person would ever see it.
+            message = $"The update check stopped unexpectedly: {ex.Message}";
+        }
+
+        if (_gone) return;
+        try
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (!_gone) Notify(message);
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // The window's dispatcher shut down between the two checks.
+        }
+    }
 
     private string? OpenConfigFolder()
     {

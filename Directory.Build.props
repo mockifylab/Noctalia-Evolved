@@ -4,7 +4,7 @@
        metadata a packaged build carries, and the update checker's comparison all read this.
        The commit suffix is turned off so the row shows the release, not a build hash. -->
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 

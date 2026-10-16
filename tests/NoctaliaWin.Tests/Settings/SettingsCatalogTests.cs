@@ -54,11 +54,12 @@ public class SettingsCatalogTests
     public void EveryRowIdIsAConfigPathOrADocumentedWindowsKey()
     {
         // The `system.` rows are the ones that reach outside config.toml: the Run key, the
-        // config file's own path, the build version, and the two buttons.
+        // config file's own path, the build version, and the four buttons.
         var outsideConfig = new HashSet<string>(StringComparer.Ordinal)
         {
             "system.autostart", "system.config_path", "system.version",
             "system.open_config_folder", "system.restore_defaults",
+            "system.check_updates", "system.open_release_page",
         };
 
         foreach (var (_, _, field) in SettingsCatalog.All())

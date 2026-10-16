@@ -30,6 +30,7 @@ public partial class App : Application
     private readonly TrayService _tray = new();
     private readonly HotkeyService _hotkeys = new();
     private readonly StartupService _startup = new();
+    private readonly UpdateService _updates = new();
 
     private readonly List<BarState> _bars = [];
     private BarViewModel? _model;
@@ -129,7 +130,7 @@ public partial class App : Application
         _editor ??= new SettingsEditor(_settings, _startup, AppVersion);
 
         var window = new SettingsWindow(
-            _editor, theme, config.Accessibility.UiScale, config.Accessibility.UiScale, page);
+            _editor, theme, config.Accessibility.UiScale, config.Accessibility.UiScale, page, _updates);
         window.Closed += (_, _) =>
         {
             if (ReferenceEquals(_settingsWindow, window)) _settingsWindow = null;

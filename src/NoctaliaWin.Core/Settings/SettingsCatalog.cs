@@ -13,6 +13,8 @@ public static class SettingsCatalog
     /// The action ids a Button row can carry; the window decides what each one does.
     public const string OpenConfigFolder = "open-config-folder";
     public const string RestoreDefaults = "restore-defaults";
+    public const string CheckForUpdates = "check-for-updates";
+    public const string OpenLatestRelease = "open-latest-release";
 
     public static IReadOnlyList<SettingsPage> Pages { get; } =
     [
@@ -428,6 +430,22 @@ public static class SettingsCatalog
                     "The build that is running.",
                     s => s.AppVersion,
                     tags: ["build"]),
+
+                SettingsField.Push(
+                    "system.check_updates", "Check for updates",
+                    "Asks GitHub for the newest release of the repository this build is published "
+                        + "from and reports what it says. Nothing is downloaded and nothing is "
+                        + "installed; the answer arrives as a line on this page.",
+                    CheckForUpdates,
+                    tags: ["update", "upgrade", "release", "version", "github"]),
+
+                SettingsField.Push(
+                    "system.open_release_page", "Open the newest release in the browser",
+                    "The page the check points at, so the decision to download and install stays "
+                        + "with you. Change which repository either row asks with the "
+                        + "NOCTALIA_REPOSITORY environment variable.",
+                    OpenLatestRelease,
+                    tags: ["update", "download", "release", "github", "browser"]),
 
                 SettingsField.Push(
                     "system.open_config_folder", "Open the settings folder",
