@@ -181,6 +181,31 @@ public class SettingsStoreTests
         Assert.Equal(1, raised);
     }
 
+    /// An editor that empties the file before writing the new text back is caught by the watcher
+    /// at that empty moment. Reloading there would put the bar back to its factory settings for
+    /// an instant, so a present-but-empty file counts as a write in progress rather than a
+    /// config that was cleared. The next event carries the text and is acted on as normal.
+    [Fact]
+    public void ReloadIfChanged_IgnoresAFileThatIsPresentButEmpty()
+    {
+        using var dir = new TempConfigDir();
+        var store = new SettingsStore(dir.Path);
+        var custom = store.Current.Clone();
+        custom.Bars["main"].Thickness = 26;
+        store.Save(custom);
+        var written = File.ReadAllText(dir.ConfigPath);
+
+        File.WriteAllText(dir.ConfigPath, "");
+
+        Assert.False(store.ReloadIfChanged());
+        Assert.Equal(26, store.Current.Main.Thickness);
+
+        File.WriteAllText(dir.ConfigPath, written.Replace("thickness = 26", "thickness = 30"));
+
+        Assert.True(store.ReloadIfChanged());
+        Assert.Equal(30, store.Current.Main.Thickness);
+    }
+
     /// One save arrives as several file-system events, and the app's own writes are events too.
     /// A second look at unchanged text has to be silent, or every setting change would rebuild
     /// the bar a handful of times.

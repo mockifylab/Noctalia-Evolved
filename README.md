@@ -17,7 +17,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > starts the selected one with Enter. The launcher also answers a global `Ctrl+Alt+Space` from
 > anywhere on the desktop. The settings window is laid out the way Noctalia's is — search,
 > section list, grouped cards — and every row in it writes `config.toml` and redraws the bar.
-> 476 tests pass. See [Current state](#current-state).
+> 477 tests pass. See [Current state](#current-state).
 
 ## Current state
 
@@ -153,8 +153,10 @@ shortcut that lands on one page.
 A hand edit to `config.toml` is picked up too: the app watches the file, and a change in its
 text — not merely a touch — reloads the store and rebuilds the bar. The app's own writes are
 filtered the same way, which is what keeps one save (an atomic replace, which arrives as
-several file-system events) from rebuilding the bar half a dozen times. A malformed edit
-falls back to defaults with a diagnostic rather than taking the bar down.
+several file-system events) from rebuilding the bar half a dozen times. An editor that empties
+the file before writing the new text back is caught at that empty moment and left alone, so a
+half-finished edit never drops the bar to its defaults. A malformed edit falls back to defaults
+with a diagnostic rather than taking the bar down.
 
 ## Layout
 

@@ -15,6 +15,8 @@ public interface ISettingsStore
     /// Re-reads the file only when its text differs from what this store last loaded or wrote,
     /// and raises `Changed` only then. That is what lets a file-system event — which fires
     /// several times for one save, and fires for the app's own writes too — be safe to act on.
+    /// A file that is present but empty is a write caught half-finished, so it is left alone
+    /// until the next event carries the real text.
     bool ReloadIfChanged();
 
     void Save(AppConfig config);
@@ -74,10 +76,11 @@ public sealed class SettingsStore : ISettingsStore
 
     public bool ReloadIfChanged()
     {
+        bool present = File.Exists(ConfigPath);
         string text;
         try
         {
-            text = File.Exists(ConfigPath) ? File.ReadAllText(ConfigPath) : "";
+            text = present ? File.ReadAllText(ConfigPath) : "";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -85,6 +88,13 @@ public sealed class SettingsStore : ISettingsStore
             // replaced, and a store that cannot read it keeps showing what it already has.
             return false;
         }
+
+        // An editor that empties the file before writing it back raises an event for that empty
+        // moment. Nothing this project writes is ever empty, so meeting one means catching an
+        // edit half-done; loading defaults there would drop the bar to its factory settings for
+        // an instant before the real event arrives. A file that has gone away is the other case,
+        // and still resets.
+        if (present && text.Length == 0) return false;
 
         if (text == _lastText) return false;
 

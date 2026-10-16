@@ -1,6 +1,7 @@
-// The watcher's own tests cover what a test can assert without waiting on the file system:
-// which folders it watches and that tearing it down is safe. What it decides to do when an
-// event arrives is SettingsStore.ReloadIfChanged, tested there directly.
+// The watcher's own tests cover which folders it watches, that tearing it down is safe, and
+// that an edit reaches the store through the caller's thread. What it decides to do when an
+// event arrives is SettingsStore.ReloadIfChanged, tested there directly and without waiting on
+// the file system.
 using NoctaliaWin.Core.Config;
 using NoctaliaWin.Tests.Config;
 
@@ -54,10 +55,14 @@ public class ConfigFileWatcherTests
         File.WriteAllText(dir.ConfigPath,
             File.ReadAllText(dir.ConfigPath).Replace("thickness = 34", "thickness = 26"));
 
+        // Wait for the value rather than for the first event. An editor empties the file on its
+        // way to filling it back in, the store ignores that half-written moment, and the event
+        // that matters is the one carrying the text.
         var deadline = DateTime.UtcNow.AddSeconds(5);
-        while (posted == 0 && DateTime.UtcNow < deadline) System.Threading.Thread.Sleep(25);
+        while (store.Current.Main.Thickness != 26 && DateTime.UtcNow < deadline)
+            System.Threading.Thread.Sleep(25);
 
-        Assert.True(posted > 0, "the watcher did not post the edit within five seconds");
         Assert.Equal(26, store.Current.Main.Thickness);
+        Assert.True(posted > 0, "the watcher did not post the edit within five seconds");
     }
 }
