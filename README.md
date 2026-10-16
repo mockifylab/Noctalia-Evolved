@@ -17,7 +17,10 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > starts the selected one with Enter. The launcher also answers a global `Ctrl+Alt+Space` from
 > anywhere on the desktop. The settings window is laid out the way Noctalia's is — search,
 > section list, grouped cards — and every row in it writes `config.toml` and redraws the bar.
-> 477 tests pass. See [Current state](#current-state).
+> A `media` widget reads the system's own media controls (SMTC), so whatever app holds them —
+> Spotify, a browser, Movies & TV — shows as `Title - Artist` in the bar and gets play/pause,
+> next and previous in the quick-settings panel.
+> 482 tests pass. See [Current state](#current-state).
 
 ## Current state
 
@@ -26,7 +29,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | Concave bar geometry, design tokens, palettes | Done, ported from Noctalia and unit-tested |
 | Config (`config.toml`) load/save/validate/migrate | Done, unit-tested; a hand edit in an outside editor is watched for and reloaded |
 | fzy fuzzy search + launcher ranking | Done, unit-tested |
-| Monitors, DPI, power, network, audio, startup, tray | Done against documented Win32/COM APIs |
+| Monitors, DPI, power, network, audio, media (SMTC), startup, tray | Done against documented Win32/COM/WinRT APIs |
 | Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
 | Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement. `borders` turns the outline on and off and `border_width` sets its thickness in logical pixels |
 | Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
@@ -34,7 +37,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | Settings window | **Runs**; Noctalia's layout (search, section list, grouped cards), seven sections, and the row kinds upstream uses — switches, pills, dropdowns, sliders with a typed read-out, text fields, a key-capture box, a scheme grid, widget lanes, reset-per-row and restore-all-defaults. Every row writes `config.toml` through the same editor the tests round-trip, and the bar rebuilds from it |
 
 Widgets that have no Windows backing yet are **skipped and reported**, never drawn as empty
-tiles: `media`, `clipboard`, `bluetooth`, `brightness`, `wallpaper`, `workspaces`, `text`,
+tiles: `clipboard`, `bluetooth`, `brightness`, `wallpaper`, `workspaces`, `text`,
 `tray` and `notifications`. The last two are on that list because reading another process's
 status-bar icons or toast content has no supported API. `launcher` and `control-center` are
 drawn as bar buttons with a word instead of Noctalia's icon-font glyph; `settings` is a bar

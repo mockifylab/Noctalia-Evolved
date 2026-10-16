@@ -1,8 +1,8 @@
 // What goes inside a pop-out panel. Three surfaces exist in this build, and each is made of
 // data the platform services actually report: the calendar panel shows the real month and the
 // clock's configured date format, the control-center panel reads and writes the real master
-// volume and reports the real network and battery state, and the launcher lists and searches
-// the applications Windows actually has installed.
+// volume, drives the system's real media controls and reports the real network and battery
+// state, and the launcher lists and searches the applications Windows actually has installed.
 //
 // Every value here is a text label, a slider or an edit box, never an icon glyph: Noctalia's
 // icon font is not part of this repository's licence grant.
@@ -139,6 +139,23 @@ internal static class PanelContent
         var network = Label(string.Empty, theme, StyleTokens.FontSizeCaption, font, centered: false);
         var battery = Label(string.Empty, theme, StyleTokens.FontSizeCaption, font, centered: false);
 
+        // The media controls belong to whichever app currently holds them, so this card is
+        // built once and then shown, hidden and re-labelled as sessions come and go.
+        var mediaTrack = Label(string.Empty, theme, StyleTokens.FontSizeCaption, font, centered: false);
+        mediaTrack.TextWrapping = TextWrapping.Wrap;
+        var playPause = TextButton("Play or pause the current player", "Play", _ => audio.ToggleMedia(), 0, theme, zoom, font);
+        var mediaPrevious = TextButton("Previous track", "Back", _ => audio.PreviousMedia(), 0, theme, zoom, font);
+        var mediaNext = TextButton("Next track", "Next", _ => audio.NextMedia(), 0, theme, zoom, font);
+        var mediaButtons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = Space(0, StyleTokens.SpaceSm * zoom, 0, 0),
+        };
+        mediaButtons.Children.Add(mediaPrevious);
+        mediaButtons.Children.Add(playPause);
+        mediaButtons.Children.Add(mediaNext);
+        var mediaCard = Card(theme, zoom, mediaTrack, mediaButtons);
+
         // The panel must follow a volume change made by another app, but must not fight the
         // user while they are dragging.
         void Repaint()
@@ -155,15 +172,24 @@ internal static class PanelContent
             mute.Content = audio.IsMuted ? "Unmute" : "Mute";
             network.Text = "Network: " + audio.NetworkSummary;
             battery.Text = "Battery: " + audio.BatterySummary;
+
+            var media = audio.Media;
+            mediaCard.Visibility = media.HasSession ? Visibility.Visible : Visibility.Collapsed;
+            mediaTrack.Text = audio.MediaTrackLine ?? "Nothing playing";
+            playPause.Content = media.Status == MediaPlaybackStatus.Playing ? "Pause" : "Play";
+            playPause.IsEnabled = media.CanPlayPause;
+            mediaPrevious.IsEnabled = media.CanPrevious;
+            mediaNext.IsEnabled = media.CanNext;
         }
 
         model.Changed += Repaint;
         root.Children.Add(Card(theme, zoom, volumeLabel, volume, mute));
+        root.Children.Add(mediaCard);
         root.Children.Add(Card(theme, zoom, network));
         root.Children.Add(Card(theme, zoom, battery));
 
         var note = Label(
-            "Media, notifications and brightness need Windows APIs this build does not use yet.",
+            "Notifications and brightness need Windows APIs this build does not use yet.",
             theme, StyleTokens.FontSizeMini, font, centered: false);
         note.Opacity = 0.7;
         note.TextWrapping = TextWrapping.Wrap;

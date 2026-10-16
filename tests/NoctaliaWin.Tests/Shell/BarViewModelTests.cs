@@ -66,12 +66,30 @@ public sealed class BarViewModelTests
             _zone ??= TimeZoneInfo.CreateCustomTimeZone("test", now.Offset, "test", "test");
     }
 
+    /// Records which commands the view model thought the player would take.
+    private sealed class FakeMedia : IMediaService
+    {
+        public MediaSnapshot Snapshot { get; set; } = MediaSnapshot.Empty;
+        public int ToggleCount { get; private set; }
+        public int NextCount { get; private set; }
+        public int PreviousCount { get; private set; }
+        public event Action? Changed;
+
+        public void TogglePlayPause() => ToggleCount++;
+        public void Next() => NextCount++;
+        public void Previous() => PreviousCount++;
+
+        public void Raise() => Changed?.Invoke();
+    }
+
     private static BarViewModel Create(
         FakeAudio audio,
         ISystemStatusService? status = null,
-        ISettingsStore? settings = null) =>
+        ISettingsStore? settings = null,
+        FakeMedia? media = null) =>
         new(status ?? new FakeStatus(new SystemStatusSnapshot(97, BatteryStatus.Discharging, true, "wifi")),
             audio,
+            media ?? new FakeMedia(),
             settings ?? new FakeStore(),
             action => action(),
             new FixedTime(new DateTimeOffset(2026, 10, 15, 9, 37, 0, TimeSpan.FromHours(2))));
@@ -181,7 +199,6 @@ public sealed class BarViewModelTests
 
     [Theory]
     [InlineData("session")]
-    [InlineData("media")]
     [InlineData("made-up")]
     public void WidgetsWithoutAPanelYetAreNotRendered(string widget)
     {
@@ -229,10 +246,12 @@ public sealed class BarViewModelTests
     public void ServiceChanges_ReachTheViewThroughTheMarshaller()
     {
         var audio = new FakeAudio();
+        var media = new FakeMedia();
         int marshalled = 0;
         var model = new BarViewModel(
             new FakeStatus(new SystemStatusSnapshot(50, BatteryStatus.Discharging, true, "ethernet")),
             audio,
+            media,
             new FakeStore(),
             action =>
             {
@@ -248,6 +267,13 @@ public sealed class BarViewModelTests
 
         Assert.Equal(1, marshalled);
         Assert.Equal(1, repaints);
+
+        // The media service reports from whatever thread Windows raised it on, so it goes
+        // through the same hand-over as the rest of them.
+        media.Raise();
+
+        Assert.Equal(2, marshalled);
+        Assert.Equal(2, repaints);
     }
 
     [Fact]
@@ -269,13 +295,123 @@ public sealed class BarViewModelTests
     public void Dispose_UnsubscribesFromEveryService()
     {
         var audio = new FakeAudio();
-        var model = Create(audio);
+        var media = new FakeMedia();
+        var model = Create(audio, media: media);
         int repaints = 0;
         model.Changed += () => repaints++;
 
         model.Dispose();
         audio.ToggleMute();
+        media.Raise();
 
         Assert.Equal(0, repaints);
+    }
+
+    private static MediaSnapshot Playing(string? title, string? artist) =>
+        new(true, title, artist, MediaPlaybackStatus.Playing, true, true, true, "player.exe");
+
+    [Fact]
+    public void MediaLabel_ShowsTheTrackLineThePlayerReports()
+    {
+        var media = new FakeMedia { Snapshot = Playing("Anvil", "Rush") };
+        var model = Create(new FakeAudio(), media: media);
+
+        Assert.Equal("Anvil - Rush", model.Text("media"));
+        Assert.False(model.IsDim("media"));
+        Assert.Contains("player.exe", model.Tooltip("media"));
+    }
+
+    [Fact]
+    public void MediaLabel_ShowsWhicheverHalfThePlayerFilledIn()
+    {
+        var titleOnly = Create(new FakeAudio(),
+            media: new FakeMedia { Snapshot = Playing("Anvil", null) });
+        var artistOnly = Create(new FakeAudio(),
+            media: new FakeMedia { Snapshot = Playing(null, "Rush") });
+        // A live session with no metadata at all is normal mid-load, and says so plainly.
+        var bare = Create(new FakeAudio(),
+            media: new FakeMedia { Snapshot = Playing(null, null) });
+
+        Assert.Equal("Anvil", titleOnly.Text("media"));
+        Assert.Equal("Rush", artistOnly.Text("media"));
+        Assert.Equal("Playing", bare.Text("media"));
+    }
+
+    [Fact]
+    public void MediaLabel_TakesNoRoomUntilASessionExists()
+    {
+        var media = new FakeMedia();
+        var model = Create(new FakeAudio(), media: media);
+
+        Assert.True(model.IsRendered("media"));
+        Assert.Null(model.Text("media"));
+        Assert.Null(model.Tooltip("media"));
+
+        media.Snapshot = Playing("Anvil", "Rush");
+        Assert.Equal("Anvil - Rush", model.Text("media"));
+    }
+
+    [Fact]
+    public void MediaLabel_IsDimmedWhilePaused()
+    {
+        var model = Create(new FakeAudio(), media: new FakeMedia
+        {
+            Snapshot = Playing("Anvil", "Rush") with { Status = MediaPlaybackStatus.Paused },
+        });
+
+        Assert.True(model.IsDim("media"));
+    }
+
+    [Fact]
+    public void MediaLabel_CutsWithinTheBarAndWithoutBreakingAnEmoji()
+    {
+        var longTitle = new string('t', 60);
+        var model = Create(new FakeAudio(),
+            media: new FakeMedia { Snapshot = Playing(longTitle, "Artist") });
+
+        string cut = model.Text("media")!;
+        Assert.Equal(BarViewModel.MediaLabelLimit, cut.Length);
+        Assert.EndsWith("…", cut);
+
+        // Cutting at a fixed count can land between the two halves of a surrogate pair, which
+        // WPF would draw as a replacement box. Here the emoji straddles the cut.
+        var emoji = "x".PadRight(40, 'x') + "🎵y";
+        var emojiModel = Create(new FakeAudio(),
+            media: new FakeMedia { Snapshot = Playing(emoji, null) });
+
+        string cutEmoji = emojiModel.Text("media")!;
+        Assert.EndsWith("…", cutEmoji);
+        Assert.Equal(41, cutEmoji.Length);
+        Assert.False(char.IsHighSurrogate(cutEmoji[cutEmoji.Length - 2]));
+    }
+
+    [Fact]
+    public void MediaCommands_SendOnlyWhatThePlayerSaysItWillTake()
+    {
+        var media = new FakeMedia { Snapshot = Playing("Anvil", "Rush") };
+        var model = Create(new FakeAudio(), media: media);
+
+        model.ToggleMedia();
+        model.NextMedia();
+        model.PreviousMedia();
+        Assert.Equal((1, 1, 1), (media.ToggleCount, media.NextCount, media.PreviousCount));
+
+        // A player that accepts nothing is asked for nothing, so no control looks live when
+        // it is not.
+        media.Snapshot = Playing("Anvil", "Rush") with
+        {
+            CanPlayPause = false,
+            CanNext = false,
+            CanPrevious = false,
+        };
+        model.ToggleMedia();
+        model.NextMedia();
+        model.PreviousMedia();
+        Assert.Equal((1, 1, 1), (media.ToggleCount, media.NextCount, media.PreviousCount));
+
+        // No session at all is the same refusal.
+        media.Snapshot = MediaSnapshot.Empty;
+        model.ToggleMedia();
+        Assert.Equal(1, media.ToggleCount);
     }
 }

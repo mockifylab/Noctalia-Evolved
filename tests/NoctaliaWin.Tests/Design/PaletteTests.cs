@@ -181,7 +181,8 @@ public class WidgetCatalogTests
     [InlineData("battery")]
     [InlineData("session")]
     [InlineData("control-center")]
-    public void MilestoneOneWidgetsAreSupported(string name)
+    [InlineData("media")]
+    public void ImplementedWidgetsAreSupported(string name)
     {
         Assert.True(WidgetCatalog.IsKnown(name));
         Assert.True(WidgetCatalog.IsSupported(name));
@@ -189,7 +190,6 @@ public class WidgetCatalogTests
 
     [Theory]
     [InlineData("workspaces")]   // no Windows virtual-desktop equivalent wired yet
-    [InlineData("media")]        // SMTC-backed, planned for M2
     [InlineData("wallpaper")]
     [InlineData("brightness")]
     [InlineData("tray")]         // other processes' status icons have no documented reader

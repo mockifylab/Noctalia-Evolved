@@ -178,12 +178,14 @@ public sealed class BarLayoutTests
         Assert.Equal("clock", Assert.Single(slots.Center));
         Assert.Equal("session", slots.End[^1]);
 
-        // Defaults name wallpaper/workspaces, and media/clipboard/bluetooth/
-        // brightness, which must be reported rather than silently dropped.
+        // Defaults name wallpaper/workspaces, and clipboard/bluetooth/brightness, which must
+        // be reported rather than silently dropped.
         Assert.DoesNotContain("wallpaper", slots.Start);
         Assert.DoesNotContain("workspaces", slots.Start);
         Assert.Contains("wallpaper", slots.Skipped);
-        Assert.Contains("media", slots.Skipped);
+        // Media has a Windows backing now, so the default lane keeps its slot.
+        Assert.Contains("media", slots.End);
+        Assert.DoesNotContain("media", slots.Skipped);
         Assert.Contains("bluetooth", slots.Skipped);
         // No documented API exists for another app's status icons or toast content, so
         // those names are reported as skipped instead of rendering an empty tile.

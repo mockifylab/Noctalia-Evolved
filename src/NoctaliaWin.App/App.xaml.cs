@@ -25,6 +25,7 @@ public partial class App : Application
     private readonly WindowPlacementService _placement = new();
     private readonly SystemStatusService _status = new();
     private readonly AudioService _audio = new();
+    private readonly MediaService _media = new();
     private readonly SystemThemeService _systemTheme = new();
     private readonly TrayService _tray = new();
     private readonly HotkeyService _hotkeys = new();
@@ -182,6 +183,7 @@ public partial class App : Application
         _model = new BarViewModel(
             _status,
             _audio,
+            _media,
             _settings,
             action => Dispatcher.BeginInvoke(action));
 
@@ -380,6 +382,7 @@ public partial class App : Application
         _hotkeys.Dispose();
         _status.Dispose();
         _audio.Dispose();
+        _media.Dispose();
         _systemTheme.Dispose();
         _tray.Dispose();
         base.OnExit(e);

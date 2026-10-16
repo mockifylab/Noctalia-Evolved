@@ -4,12 +4,13 @@ namespace NoctaliaWin.Core.Shell;
 
 public static class WidgetCatalog
 {
-    /// Widgets implemented in the Windows port as of Milestone 1.
+    /// Widgets implemented in the Windows port. `media` reads the system's own media controls,
+    /// so it reports whatever app holds them rather than one player we ship bindings for.
     public static readonly IReadOnlySet<string> Supported =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "launcher", "clock", "control-center", "settings", "session",
-            "network", "volume", "battery", "spacer",
+            "network", "volume", "battery", "spacer", "media",
         };
 
     /// Known upstream widget names not yet implemented on Windows. "text" is here
@@ -22,7 +23,7 @@ public static class WidgetCatalog
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "text", "tray", "notifications",
-            "wallpaper", "workspaces", "media", "clipboard", "bluetooth",
+            "wallpaper", "workspaces", "clipboard", "bluetooth",
             "brightness", "keyboard-layout", "active-window", "taskbar",
             "screenshot", "weather", "sysmon", "audio-visualizer", "caffeine",
             "nightlight", "privacy", "power-profile", "theme-mode",

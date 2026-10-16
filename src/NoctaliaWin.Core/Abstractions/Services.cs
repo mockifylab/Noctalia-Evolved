@@ -54,6 +54,50 @@ public interface IAudioService
     event Action? Changed;
 }
 
+/// Where the system's current media session stands. `None` means there is no session at all,
+/// which is a different thing from a player that is stopped.
+public enum MediaPlaybackStatus
+{
+    None,
+    Playing,
+    Paused,
+    Stopped,
+}
+
+/// What the operating system reports about whatever holds the media controls right now.
+/// Every text field can be empty: a session with no metadata is normal — a browser tab that
+/// has not filled its properties in, a radio stream, a podcast app mid-load — so the bar shows
+/// what is there rather than making up what is not.
+public sealed record MediaSnapshot(
+    bool HasSession,
+    string? Title,
+    string? Artist,
+    MediaPlaybackStatus Status,
+    bool CanPlayPause,
+    bool CanNext,
+    bool CanPrevious,
+    string? AppId)
+{
+    public static MediaSnapshot Empty { get; } =
+        new(false, null, null, MediaPlaybackStatus.None, false, false, false, null);
+}
+
+/// The system-wide media controls — the same surface the OS volume overlay and a keyboard
+/// play key drive. Reading it needs no cooperation from the player, which is why it shows
+/// Spotify and a browser and a media app alike.
+public interface IMediaService
+{
+    MediaSnapshot Snapshot { get; }
+    event Action? Changed;
+
+    /// These hand the request to whichever session Windows considers current and return;
+    /// the result arrives back through `Changed`. A player that will not take the command
+    /// simply leaves the snapshot where it was, so callers read `Can*` before offering one.
+    void TogglePlayPause();
+    void Next();
+    void Previous();
+}
+
 public sealed record AppEntry(
     string Name,
     string Exec,
