@@ -26,7 +26,7 @@ public sealed class BarSection
     public string Layer { get; set; } = "top"; // top | overlay
     public int PanelOverlap { get; set; } = 1;
 
-    public List<string> Start { get; set; } = ["launcher", "wallpaper", "workspaces"];
+    public List<string> Start { get; set; } = ["launcher", "settings", "wallpaper", "workspaces"];
     public List<string> Center { get; set; } = ["clock"];
     public List<string> End { get; set; } =
     [

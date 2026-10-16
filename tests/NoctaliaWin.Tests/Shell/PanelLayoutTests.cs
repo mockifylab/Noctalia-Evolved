@@ -226,6 +226,22 @@ public sealed class PanelLayoutTests
         Assert.True(Compute(Bar()).Attached);
     }
 
+    /// The width is the config's, not a constant: `border_width` used to be a gate that this
+    /// build drew at one weight whatever it said.
+    [Fact]
+    public void TheConfiguredBorderWidthReachesThePanel()
+    {
+        Assert.Equal(1, Compute(Bar()).PanelBorderWidth);
+        Assert.Equal(4, Compute(Bar(), panels: new PanelSection { BorderWidth = 4 }).PanelBorderWidth);
+    }
+
+    [Fact]
+    public void TurningBordersOffTakesTheWidthToZero()
+    {
+        var panel = new PanelSection { Borders = false, BorderWidth = 6 };
+        Assert.Equal(0, Compute(Bar(), panels: panel).PanelBorderWidth);
+    }
+
     [Fact]
     public void FloatingCardIsAPlainRoundedRectWithNoFlare()
     {

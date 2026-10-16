@@ -18,7 +18,9 @@ public sealed record PanelPlacement(
     double ScaleY,
     int BarRadiusStart,
     int BarRadiusEnd,
-    bool PanelBorders,
+    /// The panel's outline in logical px, or 0 for none. `shell.panel.borders` turns the
+    /// outline off, and `border_width` says how thick it is when on.
+    double PanelBorderWidth,
     int RevealDurationMs,
     /// false for a floating card: it touches no bar, so it has no seam to slide out of and
     /// fades instead of revealing.
@@ -164,7 +166,7 @@ public static class PanelLayout
             ScaleY: sy,
             BarRadiusStart: start,
             BarRadiusEnd: end,
-            PanelBorders: panels.Borders && panels.BorderWidth > 0,
+            PanelBorderWidth: panels.Borders ? panels.BorderWidth : 0,
             RevealDurationMs: StyleTokens.AnimNormalMs,
             Attached: true);
     }
@@ -244,7 +246,7 @@ public static class PanelLayout
             ScaleY: sy,
             BarRadiusStart: 0,
             BarRadiusEnd: 0,
-            PanelBorders: panels.Borders && panels.BorderWidth > 0,
+            PanelBorderWidth: panels.Borders ? panels.BorderWidth : 0,
             RevealDurationMs: StyleTokens.AnimNormalMs,
             Attached: false);
     }

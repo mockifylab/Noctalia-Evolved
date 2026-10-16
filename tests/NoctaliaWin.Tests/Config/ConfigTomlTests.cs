@@ -18,7 +18,7 @@ public class ConfigTomlTests
         Assert.Equal("dark", config.Theme.Mode);
         Assert.Equal(34, config.Main.Thickness);
         Assert.Equal("top", config.Main.Position);
-        Assert.Equal(["launcher", "wallpaper", "workspaces"], config.Main.Start);
+        Assert.Equal(["launcher", "settings", "wallpaper", "workspaces"], config.Main.Start);
         Assert.Equal(["clock"], config.Main.Center);
         Assert.Single(config.Bars);
     }
@@ -188,7 +188,7 @@ public class ConfigTomlTests
         Assert.Equal(34, config.Main.Thickness);
         Assert.Equal(1.0, config.Main.BackgroundOpacity, 3);
         Assert.True(config.Main.Shadow);
-        Assert.Equal(["launcher", "wallpaper", "workspaces"], config.Main.Start);
+        Assert.Equal(["launcher", "settings", "wallpaper", "workspaces"], config.Main.Start);
         Assert.Equal(4, diags.Count);
     }
 
@@ -300,10 +300,15 @@ public class ConfigTomlTests
     {
         var original = AppConfig.Default();
         var clone = original.Clone();
+        int startCount = original.Bars["main"].Start.Count;
+
         clone.Bars["main"].Start.Add("extra");
         clone.Bars["main"].Position = "left";
 
-        Assert.Equal(3, original.Bars["main"].Start.Count);
+        // Counted rather than hard-coded, so this says what it tests — that the lists are
+        // separate — whatever the default lane happens to hold.
+        Assert.Equal(startCount, original.Bars["main"].Start.Count);
+        Assert.Equal(startCount + 1, clone.Bars["main"].Start.Count);
         Assert.Equal("top", original.Bars["main"].Position);
     }
 }

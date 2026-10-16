@@ -243,15 +243,15 @@ public static class SettingsCatalog
             [
                 SettingsField.Toggle(
                     "shell.panel.borders", "Panel borders",
-                    "The hairline around a pop-out panel.",
+                    "The outline around a pop-out panel. Turning this off takes the outline away "
+                        + "whatever its width is set to.",
                     s => s.Config.Panels.Borders,
                     (s, v) => s.Config.Panels.Borders = v,
                     tags: ["outline", "edge"]),
 
                 SettingsField.Slider(
                     "shell.panel.border_width", "Border width",
-                    "Any value above 0 draws the border; this build renders it at one weight, so "
-                        + "above 0 the slider acts as on and off.",
+                    "How thick that outline is, in logical pixels. 0 draws nothing.",
                     s => s.Config.Panels.BorderWidth,
                     (s, v) => s.Config.Panels.BorderWidth = v,
                     0.0, 8.0, 0.5, 1, "px",

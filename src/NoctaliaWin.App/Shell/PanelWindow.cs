@@ -90,8 +90,8 @@ internal sealed class PanelWindow : Window
         var body = OutlineGeometry.FilledPath(
             silhouette,
             theme.PanelBackground,
-            placement.PanelBorders ? theme.Outline : null,
-            placement.PanelBorders ? OutlineGeometry.StrokeThickness(sx) : 0);
+            placement.PanelBorderWidth > 0 ? theme.Outline : null,
+            OutlineGeometry.StrokeThickness(sx) * placement.PanelBorderWidth);
         moving.Children.Add(body);
 
         // The painted body sits at the visual rect, inset from the surface by the flare.

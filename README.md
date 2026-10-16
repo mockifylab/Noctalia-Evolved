@@ -17,7 +17,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > starts the selected one with Enter. The launcher also answers a global `Ctrl+Alt+Space` from
 > anywhere on the desktop. The settings window is laid out the way Noctalia's is — search,
 > section list, grouped cards — and every row in it writes `config.toml` and redraws the bar.
-> 474 tests pass. See [Current state](#current-state).
+> 476 tests pass. See [Current state](#current-state).
 
 ## Current state
 
@@ -28,7 +28,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | fzy fuzzy search + launcher ranking | Done, unit-tested |
 | Monitors, DPI, power, network, audio, startup, tray | Done against documented Win32/COM APIs |
 | Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
-| Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement |
+| Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement. `borders` turns the outline on and off and `border_width` sets its thickness in logical pixels |
 | Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
 | Global hotkey | **Runs**; `shell.launcher.hotkey` (default `CTRL+ALT+SPACE`) toggles the launcher through `RegisterHotKey` on a message-only window. The Launcher section's `Show launcher` row rebinds it, and a rebuild re-registers it; if Windows will not hand the combination over, the tray tooltip says the shortcut is unavailable |
 | Settings window | **Runs**; Noctalia's layout (search, section list, grouped cards), seven sections, and the row kinds upstream uses — switches, pills, dropdowns, sliders with a typed read-out, text fields, a key-capture box, a scheme grid, widget lanes, reset-per-row and restore-all-defaults. Every row writes `config.toml` through the same editor the tests round-trip, and the bar rebuilds from it |
@@ -144,10 +144,11 @@ nothing to render them with: there are no icons, no recent/pinned/categories vie
 usage history yet. A key nothing draws is left out rather than accepted and ignored.
 
 The settings window writes this file, and the bar rebuilds as soon as a write lands. Three
-doors open it: the **Settings** entry in the tray menu, a `settings` widget in a bar lane (add
-it from the settings window's own lane editor), and `NoctaliaWin.exe --settings [section]`,
-where `section` is one of the sidebar's ids (`appearance`, `bar`, `panels`, `control-center`,
-`launcher`, `clock`, `windows`) for a shortcut that lands on one page.
+doors open it: the **Settings** entry in the tray menu, the **Settings** button in the bar's
+default Start lane (next to **Search**, and movable with the lane editor), and
+`NoctaliaWin.exe --settings [section]`, where `section` is one of the sidebar's ids
+(`appearance`, `bar`, `panels`, `control-center`, `launcher`, `clock`, `windows`) for a
+shortcut that lands on one page.
 
 A hand edit to `config.toml` is picked up too: the app watches the file, and a change in its
 text — not merely a touch — reloads the store and rebuilds the bar. The app's own writes are
