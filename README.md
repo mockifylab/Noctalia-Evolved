@@ -20,7 +20,9 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > A `media` widget reads the system's own media controls (SMTC), so whatever app holds them —
 > Spotify, a browser, Movies & TV — shows as `Title - Artist` in the bar and gets play/pause,
 > next and previous in the quick-settings panel.
-> 482 tests pass. See [Current state](#current-state).
+> 570 tests pass, the offline installer in `tools/make-installer.ps1` builds a checked
+> bundle, and the settings window can ask GitHub whether a newer release exists without
+> downloading anything. See [Current state](#current-state).
 
 ## Current state
 
@@ -34,6 +36,8 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement. `borders` turns the outline on and off and `border_width` sets its thickness in logical pixels |
 | Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
 | Global hotkey | **Runs**; `shell.launcher.hotkey` (default `CTRL+ALT+SPACE`) toggles the launcher through `RegisterHotKey` on a message-only window. The Launcher section's `Show launcher` row rebinds it, and a rebuild re-registers it; if Windows will not hand the combination over, the tray tooltip says the shortcut is unavailable |
+| Offline installer | **Runs**; `tools/make-installer.ps1` publishes the app and `NoctaliaEvolved-Setup.exe`, zips them together and writes SHA-256 checksums. The setup window states the versions and folders before a press, needs the .NET 10 Desktop Runtime to be present, and will not copy over a running install |
+| Update check | **Runs**; Settings -> Windows asks GitHub's `releases/latest` over one HTTPS GET and reports the answer as a line. Nothing is downloaded or installed. Version comparison, the repository address and GitHub's response body are unit-tested in Core |
 | Settings window | **Runs**; Noctalia's layout (search, section list, grouped cards), seven sections, and the row kinds upstream uses — switches, pills, dropdowns, sliders with a typed read-out, text fields, a key-capture box, a scheme grid, widget lanes, reset-per-row and restore-all-defaults. Every row writes `config.toml` through the same editor the tests round-trip, and the bar rebuilds from it |
 
 Widgets that have no Windows backing yet are **skipped and reported**, never drawn as empty
@@ -64,6 +68,56 @@ The bar always stays inside the work area, so it can never cover the Windows tas
 - Git
 
 No admin rights are needed to build or run.
+
+## Install
+
+The offline installer is a zip. Build it on any machine with the SDK, copy it to the target by
+hand, unpack it and run `NoctaliaEvolved-Setup.exe`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/make-installer.ps1
+```
+
+That publishes the app into `build\installer\payload`, publishes the setup window beside it,
+writes `build\NoctaliaEvolved-<version>-Setup-win-x64.zip` and lists a SHA-256 for every file in
+`build\SHA256SUMS.txt`. The target machine needs no network and no administrator account.
+
+The setup window says what it will do before anything is copied: the version in the bundle, the
+version already on disk and which replaces which, the folders it writes, and a box for
+**Start with Windows** that stays off unless you tick it. It refuses to start a copy when the
+.NET 10 Desktop Runtime is not installed, and when Noctalia is running it waits for you to quit
+it from the tray — it never stops a running program.
+
+What an install writes:
+
+- the app's files in `%LOCALAPPDATA%\Programs\Noctalia Evolved`
+- a Start Menu entry at `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Noctalia Evolved`
+- one value, `NoctaliaWin`, under `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`,
+  only if the box was on
+
+Nothing else: no download, no elevation, no service, no machine-wide write, no edit of the
+Windows taskbar or shell.
+
+Removing it is the reverse: quit Noctalia from the tray, delete the two folders above, and turn
+off **Start with Windows** in the app's Windows settings page (or delete that one `Run` value).
+
+The executables are unsigned in this repository, so the first run answers with SmartScreen and,
+on a machine with Smart App Control on, it may refuse outright. Check
+`build\SHA256SUMS.txt` before you run anything, and see
+[Troubleshooting and recovery](#troubleshooting-and-recovery).
+
+## Keeping up to date
+
+**Settings -> Windows -> Check for updates** asks GitHub for the newest release of the repository
+this build is published from and answers as a line on the page. The request is one HTTPS GET of
+`https://api.github.com/repos/<owner>/<name>/releases/latest`: it carries no settings, no paths,
+no identifiers, and nothing that distinguishes this machine from any other. Nothing is
+downloaded, and nothing is installed — the row next to it opens the release page in your browser
+so the decision to install stays yours.
+
+The default is `mockifylab/Noctalia-Evolved`. Point a fork somewhere else with
+`NOCTALIA_REPOSITORY`, as `owner/name` or as a GitHub URL; an unreadable value is reported as
+unconfigured rather than falling back silently.
 
 ## Build
 

@@ -59,22 +59,26 @@ if (-not (Test-Path $setup)) { throw "No NoctaliaEvolved-Setup.exe was produced 
 $zip = Join-Path $repo "build\NoctaliaEvolved-$Version-Setup-$Runtime.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 
-# The payload folder goes in as-is, which is where the setup window looks for the app.
-Compress-Archive -Path (Join-Path $out 'payload'), $setup,
-    (Join-Path $out 'NoctaliaEvolved-Setup.dll') -DestinationPath $zip
+# The whole build folder is the bundle: payload\ beside the setup executable, which is exactly
+# where the setup window looks. Archive entry names carry a backslash on Windows PowerShell,
+# which Explorer and 7-Zip read as a folder; an unpacker that does not should use -o with tar.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory($out, $zip)
 
 $checksums = Join-Path (Split-Path -Parent $zip) 'SHA256SUMS.txt'
 $entries = @($zip) + (Get-ChildItem $payload -File -Recurse | Select-Object -ExpandProperty FullName)
 $rows = foreach ($file in $entries) {
     $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLower()
     $relative = if ($file.StartsWith($payload, [System.StringComparison]::OrdinalIgnoreCase)) {
-        'payload\' + $file.Substring($payload.Length).TrimStart('\')
+        'payload/' + $file.Substring($payload.Length).TrimStart('\')
     } else {
         Split-Path -Leaf $file
     }
     "$hash  $relative"
 }
-Set-Content -LiteralPath $checksums -Value $rows -Encoding utf8
+
+# No byte-order mark: a checksum file should be readable by sha256sum as it is.
+[System.IO.File]::WriteAllLines($checksums, $rows)
 
 Write-Host ""
 Write-Host "Offline installer: $zip"

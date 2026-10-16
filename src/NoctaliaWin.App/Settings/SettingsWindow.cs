@@ -383,7 +383,7 @@ internal sealed class SettingsWindow : Window
         if (_gone) return;
         try
         {
-            Dispatcher.BeginInvoke(() =>
+            _ = Dispatcher.BeginInvoke(() =>
             {
                 if (!_gone) Notify(message);
             });
