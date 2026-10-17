@@ -20,7 +20,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > A `media` widget reads the system's own media controls (SMTC), so whatever app holds them —
 > Spotify, a browser, Movies & TV — shows as `Title - Artist` in the bar and gets play/pause,
 > next and previous in the quick-settings panel.
-> 570 tests pass, the offline installer in `tools/make-installer.ps1` builds a checked
+> 587 tests pass, the offline installer in `tools/make-installer.ps1` builds a checked
 > bundle, and the settings window can ask GitHub whether a newer release exists without
 > downloading anything. See [Current state](#current-state).
 
@@ -36,7 +36,7 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 | Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement. `borders` turns the outline on and off and `border_width` sets its thickness in logical pixels |
 | Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
 | Global hotkey | **Runs**; `shell.launcher.hotkey` (default `CTRL+ALT+SPACE`) toggles the launcher through `RegisterHotKey` on a message-only window. The Launcher section's `Show launcher` row rebinds it, and a rebuild re-registers it; if Windows will not hand the combination over, the tray tooltip says the shortcut is unavailable |
-| Offline installer | **Runs**; `tools/make-installer.ps1` publishes the app and `NoctaliaEvolved-Setup.exe`, zips them together and writes SHA-256 checksums. The setup window states the versions and folders before a press, needs the .NET 10 Desktop Runtime to be present, and will not copy over a running install |
+| Offline installer | **Runs**; `tools/make-installer.ps1` publishes the app and `NoctaliaEvolved-Setup.exe`, zips them together and writes SHA-256 checksums. Setup is a six-step wizard (what it is, this machine, where it goes, two switches, the copy with real progress, what happened), it needs the .NET 10 Desktop Runtime to be present, and it will not copy over a running install |
 | Update check | **Runs**; Settings -> Windows asks GitHub's `releases/latest` over one HTTPS GET and reports the answer as a line. Nothing is downloaded or installed. Version comparison, the repository address and GitHub's response body are unit-tested in Core |
 | Settings window | **Runs**; Noctalia's layout (search, section list, grouped cards), seven sections, and the row kinds upstream uses — switches, pills, dropdowns, sliders with a typed read-out, text fields, a key-capture box, a scheme grid, widget lanes, reset-per-row and restore-all-defaults. Every row writes `config.toml` through the same editor the tests round-trip, and the bar rebuilds from it |
 
@@ -82,18 +82,36 @@ That publishes the app into `build\installer\payload`, publishes the setup windo
 writes `build\NoctaliaEvolved-<version>-Setup-win-x64.zip` and lists a SHA-256 for every file in
 `build\SHA256SUMS.txt`. The target machine needs no network and no administrator account.
 
-The setup window says what it will do before anything is copied: the version in the bundle, the
-version already on disk and which replaces which, the folders it writes, and a box for
-**Start with Windows** that stays off unless you tick it. It refuses to start a copy when the
-.NET 10 Desktop Runtime is not installed, and when Noctalia is running it waits for you to quit
-it from the tray — it never stops a running program.
+Setup is a wizard with one idea per page, and it says what it will do before it does any of it:
+
+1. **What this is** — the version in the bundle and how many files travel with it.
+2. **Your machine** — the three checks that gate the copy (a whole bundle, the .NET 10 Desktop
+   Runtime, and nothing running in the target folder), each with its answer. `Continue` stays put
+   until they pass.
+3. **Where it goes** — the destination, with **Change folder…** for anywhere inside your own
+   profile, and the Start Menu entry beside it. A folder outside your profile is refused with the
+   reason, because that is what would need an administrator.
+4. **Choices** — two switches: start with Windows when you sign in (on for a first install, off
+   when you are re-installing over something, so it never re-enables a switch you have since
+   turned off), and open the app when the copy finishes.
+5. **Installing** — the copy runs in the background and the bar counts real files, so the page
+   cannot stall at a decorative halfway point.
+6. **What happened** — every path it wrote, how to launch it, and how to take it back.
+
+Nothing is downloaded, no elevation is asked for, and a running Noctalia is waited for rather
+than stopped. To script the destination, pass it as an argument; the wizard still walks every
+step and applies the same folder rules:
+
+```powershell
+.\NoctaliaEvolved-Setup.exe --folder "%LOCALAPPDATA%\Programs\Noctalia Evolved"
+```
 
 What an install writes:
 
-- the app's files in `%LOCALAPPDATA%\Programs\Noctalia Evolved`
+- the app's files in `%LOCALAPPDATA%\Programs\Noctalia Evolved` (or the folder you chose)
 - a Start Menu entry at `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Noctalia Evolved`
 - one value, `NoctaliaWin`, under `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`,
-  only if the box was on
+  only if that switch was on
 
 Nothing else: no download, no elevation, no service, no machine-wide write, no edit of the
 Windows taskbar or shell.

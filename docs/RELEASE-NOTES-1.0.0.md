@@ -39,8 +39,11 @@ One HTTPS GET, no user data, nothing downloaded, nothing installed.
 ## Installing
 
 See [Install](../README.md#install). `tools/make-installer.ps1` produces
-`NoctaliaEvolved-1.0.0-Setup-win-x64.zip` and `SHA256SUMS.txt`; the setup window needs no
-network, no administrator and writes only inside this user's folders.
+`NoctaliaEvolved-1.0.0-Setup-win-x64.zip` and `SHA256SUMS.txt`. Setup is a six-step wizard — the
+bundle, this machine's three checks, the destination (changeable to any folder inside your own
+profile), two switches, the copy with a progress bar that counts real files, and a page saying
+what was written and how to take it back. It needs no network, no administrator, and writes only
+inside this user's folders.
 
 ## Known limits, said plainly
 
@@ -60,17 +63,18 @@ network, no administrator and writes only inside this user's folders.
 
 ## Verification
 
-570 unit tests pass (`dotnet test tests/NoctaliaWin.Tests`), covering the geometry, design
+587 unit tests pass (`dotnet test tests/NoctaliaWin.Tests`), covering the geometry, design
 tokens, config load/save/validate/migrate and reload, the bar layout and strftime labels, fuzzy
 search and launcher ranking, the settings catalog and editor, the panels' calendar and paging,
-the version and repository parsing behind the update check, and the installer's payload and
-version decisions. The Release build and the full suite run in
+the version and repository parsing behind the update check, and the installer's payload, version
+and destination-folder decisions. The Release build and the full suite run in
 [`.github/workflows/build-and-test.yml`](../.github/workflows/build-and-test.yml).
 
 Live checks this release was looked at in person: the bar on a 1920×1080 display at 100%, the
 calendar and control-centre panels opening, the launcher filtering and starting an app,
-`Ctrl+Alt+Space` from another window, a hand edit of `config.toml` redrawing the bar, and the
-media widget showing and controlling a session published through the system's own media controls.
+`Ctrl+Alt+Space` from another window, a hand edit of `config.toml` redrawing the bar, the
+media widget showing and controlling a session published through the system's own media controls,
+and the setup wizard walked through to a finished install.
 
 ## License
 

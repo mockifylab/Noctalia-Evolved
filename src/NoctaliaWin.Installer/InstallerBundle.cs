@@ -17,7 +17,26 @@ internal sealed record InstallerBundle(InstallLayout? Layout, string? Problem)
     /// Resolves the bundle from the setup executable's own directory, or from a path given on
     /// the command line. A bundle without a payload is a problem to state, not a reason to
     /// offer an install that would copy nothing.
-    public static InstallerBundle Read(string? explicitPayload)
+    public static InstallerBundle Read(string? explicitPayload, string? chosenFolder = null) =>
+        WithFolder(Resolve(explicitPayload), chosenFolder);
+
+    /// The folder given with `--folder`, put through the same Core check the setup window's
+    /// "Change folder" button uses, so a scripted install cannot write somewhere the wizard
+    /// would refuse.
+    private static InstallerBundle WithFolder(InstallerBundle bundle, string? chosenFolder)
+    {
+        if (chosenFolder is null || !bundle.HasPayload) return bundle;
+
+        string? problem = InstallDecision.CheckInstallFolder(chosenFolder, bundle.PayloadFolder);
+        if (problem is not null) return new InstallerBundle(null, problem);
+
+        return InstallLayout.ForFolder(bundle.PayloadFolder, chosenFolder) is { } layout
+            ? bundle with { Layout = layout }
+            : new InstallerBundle(null, "This user's Start Menu folder is not available, "
+                + "so there is nowhere for the shortcut to go.");
+    }
+
+    private static InstallerBundle Resolve(string? explicitPayload)
     {
         string here = AppContext.BaseDirectory;
 
@@ -57,9 +76,12 @@ internal sealed record InstallerBundle(InstallLayout? Layout, string? Problem)
     public string? IncomingVersion => VersionOf(Layout?.PayloadFolder);
 
     /// The version already on disk at the install path, or null for a first install.
-    public string? InstalledVersion => Layout is { IsInstalled: true } installed
-        ? VersionOf(installed.InstallFolder)
-        : null;
+    public string? InstalledVersion => InstalledVersionAt(Layout!);
+
+    /// The version on disk at any layout, so a folder chosen in the setup window reports its own
+    /// answer rather than the default folder's.
+    public static string? InstalledVersionAt(InstallLayout layout) =>
+        layout.IsInstalled ? VersionOf(layout.InstallFolder) : null;
 
     private static string? VersionOf(string? folder)
     {

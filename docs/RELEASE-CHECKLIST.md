@@ -8,7 +8,7 @@ this file exists so nobody has to guess from the release notes.
 - [x] Single version source: `Directory.Build.props` → 1.0.0, read by the settings window's
       `Version` row, by the file metadata the apphost carries, and by the update check.
 - [x] `dotnet build NoctaliaWin.slnx -c Release` succeeds.
-- [x] `dotnet test tests/NoctaliaWin.Tests` passes: 570 tests.
+- [x] `dotnet test tests/NoctaliaWin.Tests` passes: 587 tests.
 - [x] CI on `windows-latest` builds Release and runs the suite for every push to `main`.
 - [x] No secrets, no personal paths, no machine-specific settings and no build artifacts are
       committed; `build/`, `bin/` and `obj/` are git-ignored.
@@ -23,12 +23,18 @@ this file exists so nobody has to guess from the release notes.
       `build\SHA256SUMS.txt` (SHA-256 for the bundle and every payload file).
 - [x] The setup window is offline: it reads the `payload` folder beside it and never reaches the
       network.
+- [x] Six steps, one idea each — what the bundle is, this machine's three checks, where it goes,
+      two switches, the copy with a file-counting progress bar, and what happened. Walked through
+      by hand on the build machine, install included.
 - [x] It states the version in the bundle, the version on disk, which replaces which, and the
       folders it writes before a press; no silent or automatic install.
+- [x] The destination can be changed to any folder inside this user's profile; anything outside it
+      is refused with the reason, because that is what would need an administrator. The rules are
+      unit-tested in Core (`InstallDecision.CheckInstallFolder`, `InstallLayout.ForFolder`).
 - [x] It checks for the .NET 10 Desktop Runtime before copying; refuses while a running install
       holds the target instead of killing it.
 - [x] Writes stay inside this user's folders: `%LOCALAPPDATA%\Programs\Noctalia Evolved`, the
-      per-user Start Menu, and one `Run` value only when the box is ticked.
+      per-user Start Menu, and one `Run` value only when the switch is on.
 - [x] No elevation, no shell or taskbar patching, no protected process touched.
 - [ ] Code signing / publisher certificate — **not done**. Nothing here is signed, so SmartScreen
       answers the first run and Smart App Control may refuse a locally built binary outright.
