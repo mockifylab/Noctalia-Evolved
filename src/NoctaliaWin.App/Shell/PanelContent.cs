@@ -4,8 +4,9 @@
 // volume, drives the system's real media controls and reports the real network and battery
 // state, and the launcher lists and searches the applications Windows actually has installed.
 //
-// Every value here is a text label, a slider or an edit box, never an icon glyph: Noctalia's
-// icon font is not part of this repository's licence grant.
+// Every value here is a text label, a slider or an edit box, never an icon-font glyph:
+// Noctalia's icon font is not part of this repository's licence grant. The only pictures are
+// the applications' own icons, which the shell is asked for directly.
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -209,6 +210,7 @@ internal static class PanelContent
         double zoom,
         double font,
         bool searchOnTop,
+        IconCache icons,
         Action dismiss)
     {
         var root = Stack(zoom, out var padding);
@@ -230,6 +232,12 @@ internal static class PanelContent
         };
 
         var list = new StackPanel { Orientation = Orientation.Vertical };
+
+        // A row's picture is its height less the space around it, asked of the shell in
+        // physical pixels so a scaled display gets the size it will actually draw.
+        double iconSize = (PanelLayout.LauncherResultRowHeight - StyleTokens.SpaceMd) * zoom;
+        int iconPx = (int)Math.Round(iconSize);
+
         var status = Label(string.Empty, theme, StyleTokens.FontSizeMini, font, centered: false);
         status.TextWrapping = TextWrapping.Wrap;
         status.Opacity = 0.75;
@@ -289,6 +297,21 @@ internal static class PanelContent
                 var entry = page[i];
                 bool isSelected = row == selected;
 
+                // The application's own icon, drawn as soon as the shell has read it. The space
+                // is reserved either way, so a file with no picture cannot push its name out of
+                // line with every other row.
+                var glyph = new Image
+                {
+                    Width = iconSize,
+                    Height = iconSize,
+                    Stretch = Stretch.Uniform,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = Space(0, 0, StyleTokens.SpaceSm * zoom, 0),
+                    // The row is the clickable thing; a picture in it must not swallow the press.
+                    IsHitTestVisible = false,
+                };
+                icons.Ready(entry.Entry, iconPx, source => glyph.Source = source);
+
                 var name = new TextBlock
                 {
                     FontFamily = UiFont,
@@ -314,10 +337,13 @@ internal static class PanelContent
                 path.Text = entry.Entry.Exec;
 
                 var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                Grid.SetColumn(name, 0);
-                Grid.SetColumn(path, 1);
+                Grid.SetColumn(glyph, 0);
+                Grid.SetColumn(name, 1);
+                Grid.SetColumn(path, 2);
+                grid.Children.Add(glyph);
                 grid.Children.Add(name);
                 grid.Children.Add(path);
 

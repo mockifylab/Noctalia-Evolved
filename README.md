@@ -13,14 +13,15 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 > silhouette, Search and Quick settings buttons, clock, network, volume, battery, auto-hide,
 > tray presence — and clicking a widget opens the concave panel behind it: a real month
 > calendar under the clock, a quick-settings panel that reads and writes the actual master
-> volume, and a launcher that lists the installed applications, filters them as you type and
-> starts the selected one with Enter. The launcher also answers a global `Ctrl+Alt+Space` from
-> anywhere on the desktop. The settings window is laid out the way Noctalia's is — search,
-> section list, grouped cards — and every row in it writes `config.toml` and redraws the bar.
+> volume, and a launcher that lists the installed applications with their own icons, filters
+> them as you type and starts the selected one with Enter. The launcher also answers a global
+> `Ctrl+Alt+Space` from anywhere on the desktop. The settings window is laid out the way
+> Noctalia's is — search, section list, grouped cards — and every row in it writes
+> `config.toml` and redraws the bar.
 > A `media` widget reads the system's own media controls (SMTC), so whatever app holds them —
 > Spotify, a browser, Movies & TV — shows as `Title - Artist` in the bar and gets play/pause,
 > next and previous in the quick-settings panel.
-> 587 tests pass, the offline installer in `tools/make-installer.ps1` builds a checked
+> 609 tests pass, the offline installer in `tools/make-installer.ps1` builds a checked
 > bundle, and the settings window can ask GitHub whether a newer release exists without
 > downloading anything. See [Current state](#current-state).
 
@@ -30,11 +31,11 @@ permits, and replaces Wayland/Linux mechanisms with documented Windows APIs.
 |---|---|
 | Concave bar geometry, design tokens, palettes | Done, ported from Noctalia and unit-tested |
 | Config (`config.toml`) load/save/validate/migrate | Done, unit-tested; a hand edit in an outside editor is watched for and reloaded |
-| fzy fuzzy search + launcher ranking | Done, unit-tested |
+| fzy fuzzy search + launcher ranking + icon references | Done, unit-tested |
 | Monitors, DPI, power, network, audio, media (SMTC), startup, tray | Done against documented Win32/COM/WinRT APIs |
 | Bar window (position, scale, auto-hide, widgets) | Runs; clock/network/volume/battery/spacer show live data |
 | Concave pop-out panel | **Runs**; calendar (clock) and control center (volume/network/battery), attached or floating, with reveal, Escape/outside-click dismissal, one-open rule and per-monitor placement. `borders` turns the outline on and off and `border_width` sets its thickness in logical pixels |
-| Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell. Left-clicking the tray icon opens it too |
+| Launcher | **Runs**; the same panel surface, listing Start Menu and `App Paths` entries, fuzzy-filtered, keyboard-driven, launching through the shell, with each application's own icon read from the shell and cached. Left-clicking the tray icon opens it too |
 | Global hotkey | **Runs**; `shell.launcher.hotkey` (default `CTRL+ALT+SPACE`) toggles the launcher through `RegisterHotKey` on a message-only window. The Launcher section's `Show launcher` row rebinds it, and a rebuild re-registers it; if Windows will not hand the combination over, the tray tooltip says the shortcut is unavailable |
 | Offline installer | **Runs**; `tools/make-installer.ps1` publishes the app and `NoctaliaEvolved-Setup.exe`, zips them together and writes SHA-256 checksums. Setup is a six-step wizard (what it is, this machine, where it goes, two switches, the copy with real progress, what happened), it needs the .NET 10 Desktop Runtime to be present, and it will not copy over a running install |
 | Update check | **Runs**; Settings -> Windows asks GitHub's `releases/latest` over one HTTPS GET and reports the answer as a line. Nothing is downloaded or installed. Version comparison, the repository address and GitHub's response body are unit-tested in Core |
@@ -52,9 +53,9 @@ What the panels knowingly do not do: `transparency_mode = "glass"` sets the card
 cannot blur what is behind it, because WPF exposes no documented backdrop blur for a layered
 window; `shadow` is inert for panels as it is for the bar; the control center's height is
 the height its rows actually occupy rather than a measure of live content, so a panel with
-more rows later will need the same constant revisited; and the launcher lists names and paths
-as text, because `show_icons` would mean loading shell icon handlers that this build does not
-call yet.
+more rows later will need the same constant revisited; and a launcher row whose application
+has no icon the shell can read shows the space empty, because a picture invented for a program
+would be a lie about it.
 
 Two bar options are knowingly inert: `shadow` (a drop shadow needs a bleed margin the
 placement math does not reserve yet) and `reserve_space` (shrinking the real work area means
@@ -213,10 +214,12 @@ key (`CTRL+ALT+SPACE`, `SUPER+SHIFT+D`, `WIN+F12`), `SUPER`/`WIN`/`MOD4` and
 binding off. A bare key with no modifier is refused — it would be stolen from every
 application on the desktop.
 
-Upstream's other launcher keys — `layout`, `default_view`, `show_icons`, `track_usage`,
-`sort_by_usage`, `pinned` and the result providers — are **not read**, because this build has
-nothing to render them with: there are no icons, no recent/pinned/categories views and no
-usage history yet. A key nothing draws is left out rather than accepted and ignored.
+Upstream's other launcher keys — `layout`, `default_view`, `track_usage`, `sort_by_usage`,
+`pinned` and the result providers — are **not read**, because this build has nothing to render
+them with: no recent/pinned/categories views and no usage history yet. A key nothing draws is
+left out rather than accepted and ignored. `show_icons` is not read either, in the other
+direction: every row already carries the application's own icon, so there is no state for it to
+turn off.
 
 The settings window writes this file, and the bar rebuilds as soon as a write lands. Three
 doors open it: the **Settings** entry in the tray menu, the **Settings** button in the bar's
@@ -277,6 +280,10 @@ with a diagnostic rather than taking the bar down.
 - **Widgets are text labels, deliberately.** Noctalia's bar uses an icon font that is not
   part of this repository's licence grant, so a widget says "Wi-Fi" where a copied glyph
   would be an unlicensed asset.
+- **Launcher icons come from the applications themselves.** `ShellIconService` asks the shell
+  for the file and index a shortcut names, on a thread that is not the render thread, and the
+  launcher caches the PNG that comes back. No icon font and no invented artwork, and a program
+  the shell has no picture for is drawn without one.
 - **UI never calls Win32 directly.** Bar windows ask `IWindowPlacementService` for monitor
   and DPI info; widgets ask `ISystemStatusService`, `IAudioService`, etc. Each has a
   documented API, and anything without a clean Windows equivalent is labelled rather than faked.

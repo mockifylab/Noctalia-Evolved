@@ -120,4 +120,14 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    // Application icons. This is the entry point Explorer itself uses: it takes a file plus the
+    // index inside it, asks for a size, and resolves a shortcut to whatever the program it
+    // starts carries. Both handles it returns must be released with DestroyIcon.
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern int SHDefExtractIconW(string iconFile, int iconIndex, uint flags,
+        ref IntPtr largeIcon, ref IntPtr smallIcon, uint iconSize);
+
+    [DllImport("user32.dll")]
+    public static extern bool DestroyIcon(IntPtr handle);
 }

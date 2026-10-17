@@ -8,7 +8,7 @@ this file exists so nobody has to guess from the release notes.
 - [x] Single version source: `Directory.Build.props` → 1.0.0, read by the settings window's
       `Version` row, by the file metadata the apphost carries, and by the update check.
 - [x] `dotnet build NoctaliaWin.slnx -c Release` succeeds.
-- [x] `dotnet test tests/NoctaliaWin.Tests` passes: 587 tests.
+- [x] `dotnet test tests/NoctaliaWin.Tests` passes: 609 tests.
 - [x] CI on `windows-latest` builds Release and runs the suite for every push to `main`.
 - [x] No secrets, no personal paths, no machine-specific settings and no build artifacts are
       committed; `build/`, `bin/` and `obj/` are git-ignored.
@@ -16,6 +16,10 @@ this file exists so nobody has to guess from the release notes.
       `THIRD-PARTY-NOTICES.md` and `licenses/`.
 - [x] Seelen UI was consulted for integration patterns only; no code, asset or design was taken
       from it (AGPL-3.0).
+- [x] Launcher rows carry each application's own icon: the reference a shortcut names is parsed
+      in Core (`AppIconReference`, unit-tested), extracted through `SHDefExtractIcon` in the
+      Windows layer, decoded off the render thread and cached. Seen in person on a filtered
+      launcher; a program with no readable icon is drawn without one rather than with a filler.
 
 ## Installer
 

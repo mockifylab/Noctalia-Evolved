@@ -21,6 +21,7 @@ internal sealed class PanelHost : IDisposable
     private readonly Func<IReadOnlyList<PxRect>> _barRects;
     private readonly Func<BarWindow?> _primaryBar;
     private readonly Func<LauncherModel> _launcher;
+    private readonly Func<IconCache> _icons;
     private PanelWindow? _window;
 
     /// The coordinator or the window moved, so the shell re-checks auto-hide and puts the
@@ -28,19 +29,23 @@ internal sealed class PanelHost : IDisposable
     public event Action? Changed;
 
     /// `primaryBar` and `launcher` are functions because the launcher's application catalog
-    /// costs a directory scan: building a bar must not pay for a panel nobody has opened.
+    /// costs a directory scan: building a bar must not pay for a panel nobody has opened. The
+    /// icon cache is a function for the same reason, and because a config rebuild throws the
+    /// host away while the pictures it already read stay worth keeping.
     public PanelHost(
         SettingsStore settings,
         BarViewModel model,
         Func<IReadOnlyList<PxRect>> barRects,
         Func<BarWindow?> primaryBar,
-        Func<LauncherModel> launcher)
+        Func<LauncherModel> launcher,
+        Func<IconCache> icons)
     {
         _settings = settings;
         _content = new PanelContentModel(model);
         _barRects = barRects;
         _primaryBar = primaryBar;
         _launcher = launcher;
+        _icons = icons;
         _coordinator.Changed += () => Changed?.Invoke();
     }
 
@@ -107,7 +112,7 @@ internal sealed class PanelHost : IDisposable
 
         var surface = panelId == PanelCoordinator.LauncherPanel
             ? PanelContent.Launcher(_launcher(), theme, zoom, font, config.Launcher.SearchOnTop,
-                () => Close(animated: true))
+                _icons(), () => Close(animated: true))
             : PanelContent.Build(panelId, _content, theme, zoom, font);
 
         if (surface is null)

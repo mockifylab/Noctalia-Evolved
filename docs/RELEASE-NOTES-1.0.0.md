@@ -53,8 +53,9 @@ inside this user's folders.
   window does not offer them as if they worked.
 - Notifications, brightness, clipboard, wallpaper, workspaces, text and the tray's foreign icons
   have no widgets in this build; `session` is named in the catalog but has no button yet.
-- Launcher entries are Start Menu and `App Paths` only; UWP/MSIX packages are not enumerated,
-  and installed-app icons are not drawn yet.
+- Launcher entries are Start Menu and `App Paths` only; UWP/MSIX packages are not enumerated.
+  Each row carries the application's own icon, read from the file Windows names for it, and a
+  program with no readable icon is drawn without one.
 - Nothing is code-signed, and there is no publisher certificate. Expect SmartScreen on the first
   run; on a machine with Smart App Control enabled a locally built binary may be refused, which
   is why the project is verified in CI on `windows-latest`.
@@ -63,18 +64,20 @@ inside this user's folders.
 
 ## Verification
 
-587 unit tests pass (`dotnet test tests/NoctaliaWin.Tests`), covering the geometry, design
+609 unit tests pass (`dotnet test tests/NoctaliaWin.Tests`), covering the geometry, design
 tokens, config load/save/validate/migrate and reload, the bar layout and strftime labels, fuzzy
-search and launcher ranking, the settings catalog and editor, the panels' calendar and paging,
-the version and repository parsing behind the update check, and the installer's payload, version
-and destination-folder decisions. The Release build and the full suite run in
+search, launcher ranking and the icon references a launcher entry carries, the settings catalog
+and editor, the panels' calendar and paging, the version and repository parsing behind the
+update check, and the installer's payload, version and destination-folder decisions. The Release
+build and the full suite run in
 [`.github/workflows/build-and-test.yml`](../.github/workflows/build-and-test.yml).
 
 Live checks this release was looked at in person: the bar on a 1920×1080 display at 100%, the
-calendar and control-centre panels opening, the launcher filtering and starting an app,
-`Ctrl+Alt+Space` from another window, a hand edit of `config.toml` redrawing the bar, the
-media widget showing and controlling a session published through the system's own media controls,
-and the setup wizard walked through to a finished install.
+calendar and control-centre panels opening, the launcher filtering and starting an app with each
+result carrying its application's own icon, `Ctrl+Alt+Space` from another window, a hand edit of
+`config.toml` redrawing the bar, the media widget showing and controlling a session published
+through the system's own media controls, and the setup wizard walked through to a finished
+install.
 
 ## License
 

@@ -43,6 +43,7 @@ public partial class App : Application
     // never opens the launcher should not pay for it at startup.
     private ApplicationDiscoveryService? _apps;
     private LauncherModel? _launcher;
+    private IconCache? _icons;
 
     private DispatcherTimer? _pointerPoll;
     private DispatcherTimer? _slide;
@@ -93,6 +94,12 @@ public partial class App : Application
         return _launcher ??= new LauncherModel(
             _apps, new ProcessLauncher(), action => Dispatcher.BeginInvoke(action));
     }
+
+    /// The pictures for those same applications, kept in one cache for the whole session: a
+    /// config rebuild replaces `PanelHost`, and icons already read from disk are worth carrying
+    /// into the next one.
+    private IconCache RequireIcons() =>
+        _icons ??= new IconCache(new ShellIconService(), Dispatcher);
 
     /// Re-bound on every rebuild, because the binding itself is configurable and a rebuild
     /// has to be able to pick up a changed key. Unregistering first is what makes that safe:
@@ -193,7 +200,8 @@ public partial class App : Application
             _model,
             () => [.. _bars.Select(b => b.Current)],
             () => _bars.Count > 0 ? _bars[0].Window : null,
-            RequireLauncher);
+            RequireLauncher,
+            RequireIcons);
         _panels.Changed += RaiseBars;
 
         BindLauncherHotkey();

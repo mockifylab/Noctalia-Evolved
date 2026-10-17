@@ -121,6 +121,18 @@ public interface IProcessLauncher
     string? Launch(AppEntry entry);
 }
 
+/// <summary>
+/// The picture an application carries for itself. Extraction reads binaries off disk, so the
+/// UI layer asks for it away from the render thread and caches whatever comes back - including
+/// nothing.
+/// </summary>
+public interface IIconService
+{
+    /// PNG bytes for a square icon of `sizePx` physical pixels, or null when the shell has no
+    /// icon for this entry.
+    byte[]? IconPng(AppEntry entry, int sizePx);
+}
+
 public interface IStartupService
 {
     bool Enabled { get; }
